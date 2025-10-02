@@ -1,0 +1,24 @@
+<!-- public/logo-hawkiel.svg -->
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Lauf Manager – HAW Kiel">
+  <defs>
+    <clipPath id="clip">
+      <circle cx="32" cy="32" r="30"/>
+    </clipPath>
+  </defs>
+
+  <!-- Grundfläche -->
+  <circle cx="32" cy="32" r="30" fill="#00305D"/>
+
+  <!-- schräger 'Winkel' oben links (neutral angelehnt) -->
+  <g clip-path="url(#clip)">
+    <path d="M-10,6 L30,6 L6,30 Z" fill="#ffffff" opacity="0.92"/>
+  </g>
+
+  <!-- Läufer-Piktogramm (weiß) -->
+  <g fill="#ffffff" opacity="0.98">
+    <!-- Kopf -->
+    <circle cx="39.5" cy="22" r="2.6"/>
+    <!-- Dynamik / Körper -->
+    <path d="M35 24.6 l7.2 3.9 -3 3.2 4.3 7.6 -2.8 1.1 -4.2-7.5 -5 2.6 -1.4-2.5 4.9-2.6 -3.1-3.6 2.4-1.2Z"/>
+  </g>
+</svg>

@@ -1,0 +1,183 @@
+/* ===== Global Styles ===== */
+body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    background: #f7f9fb;
+    margin: 0;
+    padding: 0;
+    color: #1f2937;
+  }
+  
+  h1, h2, h3 {
+    margin: 0;
+  }
+  
+  a {
+    color: #2563eb;
+    text-decoration: none;
+  }
+  
+  a:hover {
+    text-decoration: underline;
+  }
+  
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    outline: none;
+  }
+  
+  /* ===== Event Cards ===== */
+  .event-card {
+    display: grid;
+    grid-template-columns: 1fr auto; /* links flexibel, rechts so breit wie nötig */
+    align-items: center;
+    gap: 16px;
+    background: #ffffff;
+    border: 1px solid #e6e8eb;
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 6px 18px rgba(10, 20, 40, 0.06);
+  }
+  
+  .event-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .event-title {
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  
+  .event-sub {
+    font-size: 0.9rem;
+    color: #555;
+  }
+  
+  .note-badge {
+    background: #e0f2fe;
+    color: #0369a1;
+    font-size: 0.85rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    display: inline-block;
+    margin-top: 4px;
+  }
+  
+  /* ===== Right Column: Count & Buttons ===== */
+  .count-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    min-width: 160px; /* Platz für Ziffern */
+  }
+  
+  .count-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .count-label {
+    color: #444;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  
+  .count {
+    color: #0a4bba;
+    font-weight: 900;
+    font-size: 1.2rem;
+    line-height: 1;
+    min-width: 1.6rem;
+    text-align: right;
+  }
+  
+  /* kleine Namensliste */
+  .names {
+    color: #6b7280;
+    font-size: 0.85rem;
+    text-align: right;
+    max-width: 240px;
+    line-height: 1.3;
+  }
+  
+  /* ===== Buttons ===== */
+  .btn {
+    padding: 0.55rem 0.9rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: background 0.2s, transform 0.1s;
+  }
+  
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+  
+  .btn-join {
+    background: #d1fae5;
+    color: #065f46;
+  }
+  
+  .btn-join:hover {
+    background: #a7f3d0;
+  }
+  
+  .btn-leave {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  
+  .btn-leave:hover {
+    background: #fecaca;
+  }
+  
+  /* ===== Header / Logo ===== */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 22px;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .header-logo {
+    height: 40px;
+    width: 40px;
+  }
+  
+  .header-title {
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #00305D;
+  }
+  
+  .header-subtitle {
+    font-size: 0.9rem;
+    color: #6b7280;
+  }
+  
+  /* ===== Section Titles ===== */
+  .section-title {
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin: 20px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #00305D;
+  }

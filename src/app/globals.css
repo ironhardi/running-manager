@@ -1,26 +1,129 @@
-@import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ===== Global ===== */
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background: #f7f9fb;
+  color: #111827;
 }
+
+/* zentrale Breite */
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+/* ===== Header ===== */
+.header {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 12px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-logo { border-radius: 999px; }
+.header-title { font-weight: 800; font-size: 1.25rem; color: #00305D; }
+.header-subtitle { font-size: .95rem; color: #6b7280; }
+.btn-logout {
+  background: #f3f4f6; border: 1px solid #d1d5db; color:#111827;
+  padding: 6px 12px; border-radius: 8px; font-weight: 600; cursor: pointer;
+}
+.btn-logout:hover { background: #e5e7eb; }
+
+/* ===== Hero oben ===== */
+.hero {
+  background: linear-gradient(180deg, #ffffff 0%, #f3f8ff 100%);
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 18px 18px;
+  margin-bottom: 16px;
+}
+.hero h1 {
+  margin: 0 0 6px 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #00305D;
+}
+.hero-sub {
+  margin: 0;
+  color: #475569;
+  font-size: .98rem;
+}
+
+/* ===== Event-Karten ===== */
+.event-list { }
+
+.event-card {
+  display: grid;
+  grid-template-columns: 1fr auto;   /* linke flexibel, rechte nur so breit wie nötig */
+  align-items: center;
+  column-gap: 20px;
+
+  background: #fff;
+  border: 1px solid #e6e8eb;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 6px 18px rgba(10,20,40,.06);
+
+  max-width: 900px;    /* z.B. maximal 900px Gesamtbreite */
+  margin-left: auto;   /* zentrieren */
+  margin-right: auto;
+}
+
+.event-left { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.event-title { font-weight: 800; font-size: 1.05rem; }
+.event-sub { font-size: .93rem; color:#4b5563; }
+.note-badge {
+  display: inline-flex; align-items: center; gap: .35rem;
+  background: #eaf0ff; color: #1e3a8a; border-radius: 8px;
+  padding: .2rem .55rem; font-weight: 600; font-size: .9rem;
+}
+
+/* rechte Spalte: Angemeldet */
+.count-wrap {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  min-width: 0;
+}
+.count-row { display: flex; align-items: center; gap: .45rem; }
+.count-label { color:#445; font-weight:700; display:flex; align-items:center; gap:.35rem; }
+.count {
+  color:#0a4bba; font-weight:900; font-size:1.12rem;
+  line-height:1; min-width:1.4rem; text-align:right;
+}
+
+/* kleine Namensliste */
+.names {
+  color:#6b7280; font-size:.83rem; text-align:right; max-width:220px; line-height:1.28;
+}
+
+/* ===== Buttons ===== */
+button { font-family: inherit; }
+.btn {
+  padding:.5rem .85rem; border-radius:8px; font-weight:700; font-size:.9rem;
+  border:1px solid transparent; cursor:pointer;
+}
+.btn:hover { filter: brightness(.985); }
+.btn-join  { background:#d1fae5; color:#065f46; border-color:#c7ebd5; }
+.btn-leave { background:#fee2e2; color:#991b1b; border-color:#f7c9c5; }
+
+/* ===== Utilities ===== */
+.list-stack > * + * { margin-top: 14px; }
+
+.admin-button {
+  background-color: #00305D;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: background-color .18s ease, transform .06s ease;
+}
+.admin-button:hover { background-color: #064b7a; }
+.admin-button:active { transform: translateY(1px); }

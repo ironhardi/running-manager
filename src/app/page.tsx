@@ -1,103 +1,115 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
+import EventList from "@/components/EventList";
+import ProfileSetup from "@/components/ProfileSetup";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  const [needsProfile, setNeedsProfile] = useState<boolean>(false);
+  const [checkingProfile, setCheckingProfile] = useState<boolean>(true);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+  // Login-Status beobachten
+  useEffect(() => {
+    let mounted = true;
+
+    async function detect() {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      const loggedIn = !!data.session;
+      setAuthed(loggedIn);
+
+      if (!loggedIn) {
+        setNeedsProfile(false);
+        setCheckingProfile(false);
+        return;
+      }
+
+      // Profil prüfen
+      const uid = data.session?.user?.id;
+      const { data: r, error } = await supabase
+        .from("runners")
+        .select("id")
+        .eq("auth_user", uid!)
+        .maybeSingle();
+
+      if (!mounted) return;
+      setNeedsProfile(!r?.id);
+      setCheckingProfile(false);
+
+      if (error) console.error("Profil-Check Fehler:", error);
+    }
+
+    detect();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      setAuthed(!!session);
+      if (!session) {
+        setNeedsProfile(false);
+        setCheckingProfile(false);
+      } else {
+        // bei neuem Login erneut prüfen
+        setCheckingProfile(true);
+        supabase
+          .from("runners")
+          .select("id")
+          .eq("auth_user", session.user.id)
+          .maybeSingle()
+          .then(({ data: r }) => {
+            setNeedsProfile(!r?.id);
+            setCheckingProfile(false);
+          });
+      }
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  if (authed === null || checkingProfile) return null; // kurze Ladephase
+
+  // Nicht eingeloggt → Teaser + Login
+  if (!authed) {
+    return (
+      <section className="hero">
+        <h1>Kommende Läufe</h1>
+        <p className="hero-sub">
+          Schnür die Schuhe und sei dabei – melde dich an, um deine Teilnahme zu verwalten.
+        </p>
+        <Link href="/login" className="btn btn-join" style={{ display: "inline-block", marginTop: 12 }}>
+          Anmelden
+        </Link>
+      </section>
+    );
+  }
+
+  // Eingeloggt, aber noch kein Profil → Profil-Setup
+  if (needsProfile) {
+    return (
+      <ProfileSetup
+        onCreated={() => {
+          // Nach erfolgreicher Profilerstellung: Seite neu laden/refresh,
+          // dann wird automatisch die EventList angezeigt.
+          window.location.reload();
+        }}
+      />
+    );
+  }
+
+  // Eingeloggt + Profil vorhanden → normale Ansicht
+  return (
+    <>
+      <section className="hero">
+        <h1>Kommende Läufe</h1>
+        <p className="hero-sub">
+          Schnür die Schuhe und sei dabei – melde dich jetzt für die nächsten Termine an.
+        </p>
+      </section>
+      <EventList />
+    </>
   );
 }
