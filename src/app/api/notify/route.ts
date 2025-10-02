@@ -4,43 +4,27 @@ import { NextRequest, NextResponse } from "next/server";
  * POST /api/notify
  * Erwartet JSON:
  *   {
- *     scope: "all" | "attendees" | "" (optional; "" => "all"),
- *     text?: string,     // vom Admin-Formular
- *     body?: string      // ältere Clients
+ *     scope: "all" | "attendees",
+ *     text?: string,  // neu: akzeptiert
+ *     body?: string   // alt: weiterhin akzeptiert
  *   }
  */
 export async function POST(req: NextRequest) {
   try {
-    // Payload robust parsen
-    const payload: any = await req.json().catch(() => ({}));
+    const json = (await req.json()) as { scope?: "all" | "attendees"; body?: string; text?: string };
 
-    // text ODER body akzeptieren
-    const textRaw = (payload?.text ?? payload?.body ?? "").toString();
-    const text = textRaw.trim();
+    const scopeIn = (json?.scope ?? "").toString().toLowerCase().trim();
+    const scope: "all" | "attendees" = scopeIn === "attendees" ? "attendees" : "all";
 
-    // Scope tolerant behandeln ("" oder undefined => "all")
-    const scopeRaw = (payload?.scope ?? "").toString().toLowerCase().trim();
-    const scope: "all" | "attendees" =
-      scopeRaw === "attendees" || scopeRaw === "teilnehmer"
-        ? "attendees"
-        : "all";
-
-    if (!text) {
-      return new NextResponse("Bad Request: missing text", { status: 400 });
+    const textOrBody = (json?.text ?? json?.body ?? "").toString().trim();
+    if (!textOrBody) {
+      return new NextResponse("Bad Request: missing text/body", { status: 400 });
     }
 
-    // ENV lesen
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const from = process.env.NOTIFY_FROM_EMAIL;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const from = process.env.NOTIFY_FROM_EMAIL!;
     const resendKey = process.env.RESEND_API_KEY;
-
-    if (!url || !key) {
-      return new NextResponse(
-        "Server config error: SUPABASE URL/KEY missing",
-        { status: 500 }
-      );
-    }
 
     // 1) Nachricht speichern
     const ins = await fetch(`${url}/rest/v1/messages`, {
@@ -51,9 +35,8 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
-      body: JSON.stringify({ scope, body: text }),
+      body: JSON.stringify({ scope, body: textOrBody }),
     });
-
     if (!ins.ok) {
       const t = await ins.text();
       return new NextResponse("DB error: " + t, { status: 500 });
@@ -62,34 +45,25 @@ export async function POST(req: NextRequest) {
     // 2) Empfänger ermitteln
     const recipients = await getRecipients(url, key, scope);
 
-    // 3) Optional E-Mail via Resend
+    // 3) Optional via Resend versenden
     let mailed = 0;
     if (resendKey && from && recipients.length > 0) {
-      mailed = await sendViaResend(resendKey, from, recipients, text);
+      mailed = await sendViaResend(resendKey, from, recipients, textOrBody);
     }
 
     return NextResponse.json({
       ok: true,
       scope,
-      saved: true,
       recipients: recipients.length,
       mailed,
+      version: "v2-accepts-text-or-body", // <-- Marker
     });
   } catch (e: any) {
-    return new NextResponse(
-      "Server error: " + String(e?.message ?? e),
-      { status: 500 }
-    );
+    return new NextResponse("Server error: " + String(e?.message ?? e), { status: 500 });
   }
 }
 
-/* ---------- Helpers ---------- */
-
-async function getRecipients(
-  url: string,
-  key: string,
-  scope: "all" | "attendees"
-): Promise<string[]> {
+async function getRecipients(url: string, key: string, scope: "all" | "attendees"): Promise<string[]> {
   if (scope === "all") {
     const r = await fetch(`${url}/rest/v1/runners?select=email`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
@@ -98,7 +72,6 @@ async function getRecipients(
     return (data ?? []).map((x: any) => x.email).filter(Boolean);
   }
 
-  // attendees = Zusagen für den nächsten Termin
   const today = new Date().toISOString().slice(0, 10);
   const evRes = await fetch(
     `${url}/rest/v1/events?select=id,event_date&event_date=gte.${today}&order=event_date.asc&limit=1`,
@@ -116,12 +89,7 @@ async function getRecipients(
   return (data ?? []).map((x: any) => x.runners?.email).filter(Boolean);
 }
 
-async function sendViaResend(
-  apiKey: string,
-  from: string,
-  recipients: string[],
-  text: string
-): Promise<number> {
+async function sendViaResend(apiKey: string, from: string, recipients: string[], body: string): Promise<number> {
   const replyTo = process.env.NOTIFY_REPLY_TO; // optional
   let sent = 0;
 
@@ -137,7 +105,7 @@ async function sendViaResend(
           from,
           to: email,
           subject: "Laufgruppe – Info",
-          text,
+          text: body,
           ...(replyTo ? { reply_to: replyTo } : {}),
         }),
       });
