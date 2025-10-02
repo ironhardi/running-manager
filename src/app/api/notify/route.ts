@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+/** Einfache Versionsprüfung per GET */
+export async function GET() {
+  return NextResponse.json({ version: "v2-accepts-text-or-body" });
+}
+
 /**
  * POST /api/notify
  * Erwartet JSON:
@@ -56,12 +61,14 @@ export async function POST(req: NextRequest) {
       scope,
       recipients: recipients.length,
       mailed,
-      version: "v2-accepts-text-or-body", // <-- Marker
+      version: "v2-accepts-text-or-body",
     });
   } catch (e: any) {
     return new NextResponse("Server error: " + String(e?.message ?? e), { status: 500 });
   }
 }
+
+/* ---------- Helpers ---------- */
 
 async function getRecipients(url: string, key: string, scope: "all" | "attendees"): Promise<string[]> {
   if (scope === "all") {
