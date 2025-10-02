@@ -10,8 +10,8 @@ type Row = {
   id: string | number;
   event_date: string;          // YYYY-MM-DD
   start_time: string | null;   // HH:MM:SS
-  location: string | null;
-  notes: string | null;
+  location?: string | null;
+  notes?: string | null;
   title?: string | null;
 };
 
@@ -134,10 +134,17 @@ function buildCalendar(opts: {
       dtStart,
       dtEnd,
       `SUMMARY:${escapeText(summary)}`,
-      ev.location ? `LOCATION:${escapeText(ev.location ?? "")}` : undefined,
-      ev.notes ? `DESCRIPTION:${escapeText(ev.notes ?? "")}` : undefined,
-      "END:VEVENT"
-    ).filter(Boolean as any);
+    );
+
+    // Nur hinzufügen, wenn vorhanden – ohne undefined
+    if (ev.location) {
+      lines.push(`LOCATION:${escapeText(ev.location)}`);
+    }
+    if (ev.notes) {
+      lines.push(`DESCRIPTION:${escapeText(ev.notes)}`);
+    }
+
+    lines.push("END:VEVENT");
   }
 
   lines.push("END:VCALENDAR", "");
