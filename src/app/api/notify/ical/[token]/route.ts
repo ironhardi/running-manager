@@ -1,39 +1,39 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-// Wir verwenden hier bewusst den Service-Role Key, weil der Request
-// anonym ist (Kalender-Subscriber). Zugriff wird über das geheime Token begrenzt.
+export const dynamic = "force-dynamic";
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 type Row = {
   id: string | number;
   event_date: string;          // YYYY-MM-DD
-  start_time: string | null;   // HH:MM:SS (oder null = ganztägig)
+  start_time: string | null;   // HH:MM:SS
   location: string | null;
   notes: string | null;
   title?: string | null;
 };
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { token: string } }
+  _req: NextRequest,
+  { params }: { params: Promise<{ token: string }> }  // <-- Next.js 15
 ) {
-  const token = params.token?.trim();
-  if (!token) return new NextResponse("Missing token", { status: 400 });
+  const { token } = await params;
+  const clean = token?.trim();
+  if (!clean) return new NextResponse("Missing token", { status: 400 });
 
-  // 1) Runner zu Token auflösen
-  const rRes = await fetch(`${SUPABASE_URL}/rest/v1/runners?select=id,display_name&ical_token=eq.${encodeURIComponent(token)}`, {
-    headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` },
-    cache: "no-store",
-  });
+  // 1) Runner zum Token
+  const rRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/runners?select=id,display_name&ical_token=eq.${encodeURIComponent(clean)}`,
+    { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` }, cache: "no-store" }
+  );
   if (!rRes.ok) return new NextResponse("Token lookup failed", { status: 500 });
   const runners = await rRes.json();
   const runner = runners?.[0];
   if (!runner?.id) return new NextResponse("Not found", { status: 404 });
 
-  // 2) Zuge­sagte Termine (attendance.status = 'yes')
-  //    Optional: Nur zukünftige (>= heute)
-  const today = new Date().toISOString().slice(0, 10);
+  // 2) Zusagen holen
   const aRes = await fetch(
     `${SUPABASE_URL}/rest/v1/attendance?select=event_id&runner_id=eq.${runner.id}&status=eq.yes`,
     { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` }, cache: "no-store" }
@@ -43,10 +43,9 @@ export async function GET(
   const ids = [...new Set(aRows.map(a => a.event_id))];
   if (ids.length === 0) return icsResponse(emptyCalendar(runner.display_name ?? "Runner"));
 
-  // Events holen (nur kommende)
-  const inFilter = ids.map(id => `id.in.(${id})`).length ? `id=in.(${ids.join(",")})` : "";
+  const today = new Date().toISOString().slice(0, 10);
   const eRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/events?select=id,event_date,start_time,location,notes,title&${inFilter}&event_date=gte.${today}`,
+    `${SUPABASE_URL}/rest/v1/events?select=id,event_date,start_time,location,notes,title&id=in.(${ids.join(",")})&event_date=gte.${today}`,
     { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` }, cache: "no-store" }
   );
   if (!eRes.ok) return new NextResponse("Events query failed", { status: 500 });
@@ -56,7 +55,6 @@ export async function GET(
     prodId: "-//Lauf Manager HAW Kiel//DE",
     calName: `Lauf Manager – Zusagen (${runner.display_name ?? "Runner"})`,
     tzid: "Europe/Berlin",
-    baseUrl: SUPABASE_URL,
     runnerId: runner.id,
     events,
   });
@@ -64,7 +62,7 @@ export async function GET(
   return icsResponse(ical);
 }
 
-/* ---------------- ICS-Helfer ---------------- */
+/* ---------- ICS Helpers ---------- */
 
 function icsResponse(body: string) {
   return new NextResponse(body, {
@@ -84,7 +82,7 @@ function emptyCalendar(name: string) {
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Lauf Manager HAW Kiel//DE",
-    `X-WR-CALNAME:Lauf Manager – Zusagen (${escapeText(name)})`,
+    `X-WR-CALNAME:${escapeText(`Lauf Manager – Zusagen (${name})`)}`,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "END:VCALENDAR",
@@ -96,11 +94,10 @@ function buildCalendar(opts: {
   prodId: string;
   calName: string;
   tzid: string;
-  baseUrl: string;
   runnerId: string | number;
   events: Row[];
 }) {
-  const now = formatICSDate(new Date()); // UTC-Zeitstempel für DTSTAMP
+  const now = formatICSDate(new Date());
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -108,27 +105,20 @@ function buildCalendar(opts: {
     `X-WR-CALNAME:${escapeText(opts.calName)}`,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    // Minimales TZ-Handling: viele Clients interpretieren lokale Zeiten korrekt;
-    // für exakte Regeln könnte man ein VTIMEZONE einfügen. Für MVP reicht es so.
   ];
 
   for (const ev of opts.events) {
-    // UID stabilisieren: pro Runner + Event
     const uid = `runner-${opts.runnerId}-event-${ev.id}@laufmanager`;
-    // DTSTART/DTEND
     let dtStart = "";
     let dtEnd = "";
     if (ev.start_time) {
-      // Uhrzeit bekannt → Termin von start_time bis +1h
       const start = localDateTime(ev.event_date, ev.start_time);
       const end = new Date(start.getTime() + 60 * 60 * 1000); // +1h
       dtStart = `DTSTART:${formatICSDateLocal(start)}`;
       dtEnd = `DTEND:${formatICSDateLocal(end)}`;
     } else {
-      // Ganztägig
       const d = ev.event_date.replaceAll("-", "");
       dtStart = `DTSTART;VALUE=DATE:${d}`;
-      // Ganztägige End-Dates sind exklusiv → +1 Tag
       const end = addDaysISO(ev.event_date, 1).replaceAll("-", "");
       dtEnd = `DTEND;VALUE=DATE:${end}`;
     }
@@ -136,8 +126,6 @@ function buildCalendar(opts: {
     const summary = ev.title?.trim()
       ? ev.title
       : `Lauf – ${formatHuman(ev.event_date)}${ev.start_time ? `, ${ev.start_time.slice(0,5)} Uhr` : ""}`;
-    const location = ev.location ?? "";
-    const description = ev.notes ?? "";
 
     lines.push(
       "BEGIN:VEVENT",
@@ -146,8 +134,8 @@ function buildCalendar(opts: {
       dtStart,
       dtEnd,
       `SUMMARY:${escapeText(summary)}`,
-      location ? `LOCATION:${escapeText(location)}` : undefined,
-      description ? `DESCRIPTION:${escapeText(description)}` : undefined,
+      ev.location ? `LOCATION:${escapeText(ev.location)}` : undefined,
+      ev.notes ? `DESCRIPTION:${escapeText(ev.notes)}` : undefined,
       "END:VEVENT"
     ).filter(Boolean as any);
   }
@@ -156,19 +144,13 @@ function buildCalendar(opts: {
   return lines.join("\r\n");
 }
 
-/* ---------- kleine Format-Helfer ---------- */
+/* ---------- Format Helpers ---------- */
 
 function escapeText(s: string) {
-  return s
-    .replace(/\\/g, "\\\\")
-    .replace(/\n/g, "\\n")
-    .replace(/,/g, "\\,")
-    .replace(/;/g, "\\;");
+  return s.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
 }
 function pad2(n: number) { return n.toString().padStart(2, "0"); }
-
 function formatICSDate(d: Date) {
-  // UTC Zulu
   return (
     d.getUTCFullYear().toString() +
     pad2(d.getUTCMonth() + 1) +
@@ -179,7 +161,6 @@ function formatICSDate(d: Date) {
   );
 }
 function formatICSDateLocal(d: Date) {
-  // lokale „floating time“ ohne Z; viele Clients interpretieren das als lokale Zeitzone
   return (
     d.getFullYear().toString() +
     pad2(d.getMonth() + 1) +
@@ -190,7 +171,6 @@ function formatICSDateLocal(d: Date) {
   );
 }
 function localDateTime(isoDate: string, time: string) {
-  // isoDate = YYYY-MM-DD, time = HH:MM[:SS]
   const [y, m, d] = isoDate.split("-").map(Number);
   const [hh, mm, ss] = time.split(":").map(Number);
   return new Date(y, (m - 1), d, hh, mm || 0, ss || 0);
