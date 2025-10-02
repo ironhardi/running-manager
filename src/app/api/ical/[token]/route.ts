@@ -82,7 +82,7 @@ function emptyCalendar(name: string) {
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Lauf Manager HAW Kiel//DE",
-    `X-WR-CALNAME:${escapeText(\`Lauf Manager – Zusagen (\${name})\`)}`,
+    `X-WR-CALNAME:${escapeText("Lauf Manager - Zusagen (" + name + ")")}`,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "END:VCALENDAR",
