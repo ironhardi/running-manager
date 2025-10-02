@@ -17,7 +17,7 @@ type Row = {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ token: string }> }  // <-- Next.js 15
+  { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
   const clean = token?.trim();
@@ -82,7 +82,7 @@ function emptyCalendar(name: string) {
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Lauf Manager HAW Kiel//DE",
-    `X-WR-CALNAME:${escapeText(`Lauf Manager – Zusagen (${name})`)}`,
+    `X-WR-CALNAME:${escapeText(\`Lauf Manager – Zusagen (\${name})\`)}`,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "END:VCALENDAR",
@@ -134,8 +134,8 @@ function buildCalendar(opts: {
       dtStart,
       dtEnd,
       `SUMMARY:${escapeText(summary)}`,
-      ev.location ? `LOCATION:${escapeText(ev.location)}` : undefined,
-      ev.notes ? `DESCRIPTION:${escapeText(ev.notes)}` : undefined,
+      ev.location ? `LOCATION:${escapeText(ev.location ?? "")}` : undefined,
+      ev.notes ? `DESCRIPTION:${escapeText(ev.notes ?? "")}` : undefined,
       "END:VEVENT"
     ).filter(Boolean as any);
   }

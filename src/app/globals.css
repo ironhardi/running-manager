@@ -127,3 +127,19 @@ button { font-family: inherit; }
 }
 .admin-button:hover { background-color: #064b7a; }
 .admin-button:active { transform: translateY(1px); }
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #111827;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, transform .06s ease;
+}
+.icon-btn:hover { background: #eef2f7; border-color: #cbd5e1; }
+.icon-btn:active { transform: translateY(1px); }
+.icon-btn svg { display: block; }
