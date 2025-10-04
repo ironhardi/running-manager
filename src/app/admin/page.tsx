@@ -1,225 +1,595 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import React, { useState, useEffect } from 'react';
+import { Users, Calendar, MessageSquare, User, Mail, Download, Plus, Edit2, Copy, Trash2, LogOut, Save, X } from 'lucide-react';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useRouter } from 'next/navigation';
 
-/* ---------- kleine Helfer ---------- */
+const colors = {
+  primary: '#00305D',
+  primaryLight: '#0A4A8A',
+  accent: '#D4E6F1',
+  success: '#10B981',
+  error: '#EF4444',
+  gray: '#6B7280',
+  lightGray: '#F3F4F6'
+};
 
-type Tab = "events" | "attendees" | "runners" | "messages";
-function cx(...xs: (string | false | undefined)[]) { return xs.filter(Boolean).join(" "); }
-function fmtDate(d: string) {
-  try {
-    return new Date(d).toLocaleDateString("de-DE", { weekday:"long", day:"2-digit", month:"long", year:"numeric" });
-  } catch { return d; }
-}
-
-/* ---------- Seite ---------- */
-
-export default function AdminPage() {
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [tab, setTab] = useState<Tab>("events");
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const { data: s } = await supabase.auth.getSession();
-      const uid = s.session?.user?.id;
-      if (!uid) { setIsAdmin(false); setLoading(false); return; }
-      const { data: r } = await supabase.from("runners").select("is_admin").eq("auth_user", uid).maybeSingle();
-      setIsAdmin(!!r?.is_admin);
-      setLoading(false);
-    })();
-  }, []);
-
-  if (loading) return <div className="hero"><p>Lade…</p></div>;
-  if (!isAdmin) return (
-    <section className="hero">
-      <h1>Kein Zugriff</h1>
-      <p className="hero-sub">Du benötigst Admin-Rechte, um diesen Bereich zu sehen.</p>
-    </section>
-  );
-
-  return (
-    <>
-      <section className="hero" style={{ marginBottom: 16 }}>
-        <h1>Adminbereich</h1>
-        <p className="hero-sub">Verwalte Termine, Teilnehmer, Läufer und Nachrichten.</p>
-        <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className={cx("btn", tab==="events"?"btn-join":"btn-logout")} onClick={()=>setTab("events")}>Termine</button>
-          <button className={cx("btn", tab==="attendees"?"btn-join":"btn-logout")} onClick={()=>setTab("attendees")}>Teilnehmer</button>
-          <button className={cx("btn", tab==="runners"?"btn-join":"btn-logout")} onClick={()=>setTab("runners")}>Läufer</button>
-          <button className={cx("btn", tab==="messages"?"btn-join":"btn-logout")} onClick={()=>setTab("messages")}>Nachrichten</button>
-        </div>
-      </section>
-
-      {tab === "events" && <EventsAdmin />}
-      {tab === "attendees" && <AttendeesAdmin />}
-      {tab === "runners" && <RunnersAdmin />}
-      {tab === "messages" && <MessagesAdmin />}
-    </>
-  );
-}
-
-/* =========================================================
-   Termine – lesen / erstellen / bearbeiten / duplizieren / löschen
-   ========================================================= */
+type Tab = 'termine' | 'teilnehmer' | 'laufer' | 'nachrichten';
 
 type EventRow = {
-  id: number | string;
+  id: string;
   event_date: string;
   start_time: string | null;
   location: string;
   notes: string | null;
+  title: string;
 };
 
-function EventsAdmin() {
+export default function AdminPage() {
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [tab, setTab] = useState<Tab>('termine');
+  const supabase = createClientComponentClient();
+  const router = useRouter();
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      
+      if (!uid) {
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+
+      const { data: runner } = await supabase
+        .from('runners')
+        .select('is_admin')
+        .eq('auth_user', uid)
+        .maybeSingle();
+
+      setIsAdmin(!!runner?.is_admin);
+      setLoading(false);
+    };
+
+    checkAdmin();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: colors.lightGray }}>
+        <Header onLogout={handleLogout} />
+        <div className="max-w-7xl mx-auto px-6 py-24 text-center">
+          <div className="animate-pulse">
+            <div className="w-16 h-16 rounded-full mx-auto mb-4" style={{ backgroundColor: colors.accent }}></div>
+            <p className="text-gray-600">Lade...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: colors.lightGray }}>
+        <Header onLogout={handleLogout} />
+        <div className="max-w-4xl mx-auto px-6 py-24">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+            <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ backgroundColor: colors.accent }}>
+              <User className="w-10 h-10" style={{ color: colors.primary }} />
+            </div>
+            <h1 className="text-3xl font-bold mb-3" style={{ color: colors.primary }}>
+              Kein Zugriff
+            </h1>
+            <p className="text-gray-600 text-lg mb-6">
+              Du benötigst Admin-Rechte, um diesen Bereich zu sehen.
+            </p>
+            <a href="/" className="inline-block px-6 py-3 text-white rounded-lg font-medium transition-all hover:shadow-lg" style={{ backgroundColor: colors.primary }}>
+              Zur Startseite
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const tabs = [
+    { id: 'termine' as Tab, label: 'Termine', icon: Calendar },
+    { id: 'teilnehmer' as Tab, label: 'Teilnehmer', icon: Users },
+    { id: 'laufer' as Tab, label: 'Läufer', icon: User },
+    { id: 'nachrichten' as Tab, label: 'Nachrichten', icon: MessageSquare }
+  ];
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: colors.lightGray }}>
+      <Header onLogout={handleLogout} />
+      
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-8 border-b border-gray-200">
+            <h2 className="text-3xl font-bold mb-2" style={{ color: colors.primary }}>
+              Adminbereich
+            </h2>
+            <p className="text-gray-600">
+              Verwalte Termine, Teilnehmer, Läufer und Nachrichten.
+            </p>
+          </div>
+
+          <div className="border-b border-gray-200">
+            <div className="flex px-8 gap-2 overflow-x-auto">
+              {tabs.map(t => {
+                const Icon = t.icon;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setTab(t.id)}
+                    className={`flex items-center gap-2 px-6 py-4 font-medium transition-all relative whitespace-nowrap ${
+                      tab === t.id ? 'text-white' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    style={{
+                      backgroundColor: tab === t.id ? colors.success : 'transparent',
+                      borderRadius: tab === t.id ? '8px 8px 0 0' : '0'
+                    }}
+                  >
+                    <Icon className="w-5 h-5" />
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="p-8">
+            {tab === 'termine' && <TermineTab />}
+            {tab === 'teilnehmer' && <TeilnehmerTab />}
+            {tab === 'laufer' && <LauferTab />}
+            {tab === 'nachrichten' && <NachrichtenTab />}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const Header = ({ onLogout }: { onLogout: () => void }) => (
+  <header className="bg-white border-b border-gray-200">
+    <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.primary }}>
+          <Users className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: colors.primary }}>Lauf Manager</h1>
+          <p className="text-sm text-gray-600">Laufgruppe HAW Kiel · marco.hardiman@fh-kiel.de</p>
+        </div>
+      </div>
+      <div className="flex gap-3">
+        <a href="/" className="px-5 py-2 text-sm font-medium rounded-lg transition-colors border-2" style={{ borderColor: colors.primary, color: colors.primary }}>
+          Zur Startseite
+        </a>
+        <button onClick={onLogout} className="px-5 py-2 text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg flex items-center gap-2" style={{ backgroundColor: colors.error }}>
+          <LogOut className="w-4 h-4" />
+          Abmelden
+        </button>
+      </div>
+    </div>
+  </header>
+);
+
+const TermineTab = () => {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Formular für NEU
-  const [event_date, setEventDate] = useState("");
-  const [start_time, setStartTime] = useState("16:15");
-  const [location, setLocation] = useState("Haupteingang Mehrzweckgebäude, FH Kiel");
-  const [notes, setNotes] = useState("");
-
-  // Edit-Zustand
-  const [editingId, setEditingId] = useState<number | string | null>(null);
+  const [eventDate, setEventDate] = useState('');
+  const [startTime, setStartTime] = useState('16:15');
+  const [location, setLocation] = useState('Haupteingang Mehrzweckgebäude, FH Kiel');
+  const [notes, setNotes] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [edit, setEdit] = useState<Partial<EventRow>>({});
+  const supabase = createClientComponentClient();
 
-  async function load() {
+  const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("events")
-      .select("id,event_date,start_time,location,notes")
-      .order("event_date", { ascending: true });
+      .from('events')
+      .select('id, event_date, start_time, location, notes, title')
+      .order('event_date', { ascending: true });
+    
     if (error) console.error(error);
     setEvents((data as EventRow[]) ?? []);
     setLoading(false);
-  }
+  };
+
   useEffect(() => { load(); }, []);
 
-  async function createEv(e: React.FormEvent) {
+  const createEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!event_date) return;
-    const { error } = await supabase.from("events").insert({
-      event_date,
-      start_time: start_time || null,
+    if (!eventDate) return;
+
+    const { error } = await supabase.from('events').insert({
+      event_date: eventDate,
+      start_time: startTime || null,
       location,
       notes: notes || null,
+      title: 'Lauftreff'
     });
-    if (error) { alert(error.message); return; }
-    setEventDate(""); setNotes("");
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setEventDate('');
+    setNotes('');
     await load();
-  }
+  };
 
-  function startEdit(ev: EventRow) {
-    setEditingId(ev.id);
-    setEdit({
-      event_date: ev.event_date,
-      start_time: ev.start_time ?? "",
-      location: ev.location,
-      notes: ev.notes ?? "",
-    });
-  }
-  function cancelEdit() { setEditingId(null); setEdit({}); }
-
-  async function saveEdit(id: number | string) {
+  const saveEdit = async (id: string) => {
     const payload = {
       event_date: edit.event_date,
       start_time: edit.start_time || null,
       location: edit.location,
-      notes: (edit.notes ?? "").trim() || null,
+      notes: (edit.notes ?? '').trim() || null,
     };
-    const { error } = await supabase.from("events").update(payload).eq("id", id);
-    if (error) { alert(error.message); return; }
+
+    const { error } = await supabase.from('events').update(payload).eq('id', id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
     setEditingId(null);
     await load();
-  }
+  };
 
-  async function dupEv(ev: EventRow) {
-    const newDate = prompt("Neues Datum für Duplikat (YYYY-MM-DD)", ev.event_date);
+  const deleteEvent = async (id: string) => {
+    if (!confirm('Termin wirklich löschen?')) return;
+    const { error } = await supabase.from('events').delete().eq('id', id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    await load();
+  };
+
+  const duplicateEvent = async (ev: EventRow) => {
+    const newDate = prompt('Neues Datum für Duplikat (YYYY-MM-DD)', ev.event_date);
     if (!newDate) return;
-    const { error } = await supabase.from("events").insert({
+
+    const { error } = await supabase.from('events').insert({
       event_date: newDate,
       start_time: ev.start_time,
       location: ev.location,
       notes: ev.notes,
+      title: ev.title
     });
-    if (error) { alert(error.message); return; }
-    await load();
-  }
 
-  async function delEv(id: number | string) {
-    if (!confirm("Termin wirklich löschen?")) return;
-    const { error } = await supabase.from("events").delete().eq("id", id);
-    if (error) { alert(error.message); return; }
+    if (error) {
+      alert(error.message);
+      return;
+    }
     await load();
-  }
+  };
 
   return (
-    <div className="list-stack">
-      {/* Neu anlegen */}
-      <div className="hero" style={{ display: "grid", gap: 8 }}>
-        <h2 style={{ margin: 0 }}>Neuen Termin anlegen</h2>
-        <form
-          onSubmit={createEv}
-          style={{ display:"grid", gap:8, gridTemplateColumns:"160px 120px 1fr", alignItems:"center" }}
-        >
-          <input type="date" required value={event_date} onChange={(e)=>setEventDate(e.target.value)}
-                 style={{ padding:"8px 10px", borderRadius:8, border:"1px solid #d1d5db" }}/>
-          <input type="time" value={start_time} onChange={(e)=>setStartTime(e.target.value)}
-                 style={{ padding:"8px 10px", borderRadius:8, border:"1px solid #d1d5db" }}/>
-          <input type="text" value={location} onChange={(e)=>setLocation(e.target.value)}
-                 placeholder="Ort" style={{ padding:"8px 10px", borderRadius:8, border:"1px solid #d1d5db" }}/>
-          <input type="text" value={notes} onChange={(e)=>setNotes(e.target.value)}
-                 placeholder="Notiz (optional)" style={{ gridColumn:"1 / -1", padding:"8px 10px", borderRadius:8, border:"1px solid #d1d5db" }}/>
-          <button className="btn btn-join" type="submit" style={{ width:160 }}>Speichern</button>
+    <div className="space-y-8">
+      <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+        <h3 className="text-xl font-bold mb-4" style={{ color: colors.primary }}>
+          Neuen Termin anlegen
+        </h3>
+        <form onSubmit={createEvent} className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <input
+              type="date"
+              required
+              value={eventDate}
+              onChange={(e) => setEventDate(e.target.value)}
+              className="px-4 py-2 rounded-lg border border-gray-300"
+            />
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="px-4 py-2 rounded-lg border border-gray-300"
+            />
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Ort"
+              className="px-4 py-2 rounded-lg border border-gray-300"
+            />
+          </div>
+          <input
+            type="text"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Notiz (optional)"
+            className="w-full px-4 py-2 rounded-lg border border-gray-300"
+          />
+          <button
+            type="submit"
+            className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 hover:shadow-lg transition-all"
+            style={{ backgroundColor: colors.success }}
+          >
+            <Plus className="w-5 h-5" />
+            Speichern
+          </button>
         </form>
       </div>
 
-      {/* Liste */}
       <div>
-        <h2 style={{ margin:"8px 0" }}>Alle Termine</h2>
-        {loading ? <p>Lade…</p> : events.length===0 ? <p>Noch keine Termine vorhanden.</p> : (
-          <div className="list-stack">
-            {events.map((ev) => {
+        <h3 className="text-xl font-bold mb-4" style={{ color: colors.primary }}>Alle Termine</h3>
+        {loading ? (
+          <p className="text-gray-600">Lade...</p>
+        ) : events.length === 0 ? (
+          <p className="text-gray-600">Noch keine Termine vorhanden.</p>
+        ) : (
+          <div className="space-y-4">
+            {events.map(ev => {
               const isEditing = editingId === ev.id;
               return (
-                <div key={ev.id} className="event-card" style={{ gridTemplateColumns: "1fr auto" }}>
-                  <div className="event-left">
-                    {!isEditing ? (
-                      <>
-                        <div className="event-title">{fmtDate(ev.event_date)}</div>
-                        <div className="event-sub">{(ev.start_time ?? "").slice(0,5)} Uhr · {ev.location}</div>
-                        {ev.notes && <div className="note-badge">ℹ︎ {ev.notes}</div>}
-                      </>
-                    ) : (
-                      <div style={{ display:"grid", gap: 6, gridTemplateColumns: "160px 120px 1fr" }}>
-                        <input type="date" required value={edit.event_date ?? ""} onChange={(e)=>setEdit(v=>({...v, event_date:e.target.value}))}
-                               style={{ padding:"8px 10px", borderRadius:8, border:"1px solid #d1d5db" }}/>
-                        <input type="time" value={edit.start_time ?? ""} onChange={(e)=>setEdit(v=>({...v, start_time:e.target.value}))}
-                               style={{ padding:"8px 10px", borderRadius:8, border:"1px solid #d1d5db" }}/>
-                        <input type="text" value={edit.location ?? ""} onChange={(e)=>setEdit(v=>({...v, location:e.target.value}))}
-                               placeholder="Ort" style={{ padding:"8px 10px", borderRadius:8, border:"1px solid #d1d5db" }}/>
-                        <input type="text" value={edit.notes ?? ""} onChange={(e)=>setEdit(v=>({...v, notes:e.target.value}))}
-                               placeholder="Notiz (optional)" style={{ gridColumn:"1 / -1", padding:"8px 10px", borderRadius:8, border:"1px solid #d1d5db" }}/>
-                      </div>
-                    )}
+                <div key={ev.id} className="p-6 rounded-xl border border-gray-200 bg-white hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      {!isEditing ? (
+                        <>
+                          <h4 className="font-bold text-lg mb-2">
+                            {new Date(ev.event_date).toLocaleDateString('de-DE', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </h4>
+                          <p className="text-gray-600">
+                            {ev.start_time?.slice(0, 5)} Uhr · {ev.location}
+                          </p>
+                          {ev.notes && (
+                            <p className="text-sm italic mt-2 text-gray-500">ℹ️ {ev.notes}</p>
+                          )}
+                        </>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-3 gap-3">
+                            <input
+                              type="date"
+                              value={edit.event_date ?? ''}
+                              onChange={(e) => setEdit(v => ({ ...v, event_date: e.target.value }))}
+                              className="px-4 py-2 rounded-lg border border-gray-300"
+                            />
+                            <input
+                              type="time"
+                              value={edit.start_time ?? ''}
+                              onChange={(e) => setEdit(v => ({ ...v, start_time: e.target.value }))}
+                              className="px-4 py-2 rounded-lg border border-gray-300"
+                            />
+                            <input
+                              type="text"
+                              value={edit.location ?? ''}
+                              onChange={(e) => setEdit(v => ({ ...v, location: e.target.value }))}
+                              className="px-4 py-2 rounded-lg border border-gray-300"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            value={edit.notes ?? ''}
+                            onChange={(e) => setEdit(v => ({ ...v, notes: e.target.value }))}
+                            placeholder="Notiz (optional)"
+                            className="w-full px-4 py-2 rounded-lg border border-gray-300"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2 ml-4">
+                      {!isEditing ? (
+                        <>
+                          <button
+                            onClick={() => {
+                              setEditingId(ev.id);
+                              setEdit({
+                                event_date: ev.event_date,
+                                start_time: ev.start_time ?? '',
+                                location: ev.location,
+                                notes: ev.notes ?? ''
+                              });
+                            }}
+                            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                            style={{ color: colors.primary }}
+                          >
+                            <Edit2 className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => duplicateEvent(ev)}
+                            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                            style={{ color: colors.primary }}
+                          >
+                            <Copy className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => deleteEvent(ev.id)}
+                            className="p-2 rounded-lg hover:bg-red-50 transition-colors"
+                            style={{ color: colors.error }}
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => saveEdit(ev.id)}
+                            className="p-2 rounded-lg hover:bg-green-50 transition-colors"
+                            style={{ color: colors.success }}
+                          >
+                            <Save className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingId(null);
+                              setEdit({});
+                            }}
+                            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                            style={{ color: colors.gray }}
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
-                  <div className="count-wrap" style={{ gap: 8 }}>
-                    {!isEditing ? (
-                      <>
-                        <button className="btn" onClick={()=>setEditingId(ev.id)}>Bearbeiten</button>
-                        <button className="btn" onClick={()=>dupEv(ev)}>Duplizieren</button>
-                        <button className="btn btn-leave" onClick={()=>delEv(ev.id)}>Löschen</button>
-                      </>
+const TeilnehmerTab = () => {
+  const [topEvents, setTopEvents] = useState<EventRow[]>([]);
+  const [attendeesByEvent, setAttendeesByEvent] = useState<Record<string, any[]>>({});
+  const [loading, setLoading] = useState(true);
+  const supabase = createClientComponentClient();
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const iso = today.toISOString().slice(0, 10);
+
+      const { data: evs } = await supabase
+        .from('events')
+        .select('id, event_date, start_time, location, notes, title')
+        .gte('event_date', iso)
+        .order('event_date', { ascending: true })
+        .limit(10);
+
+      const all = (evs as EventRow[]) ?? [];
+      setTopEvents(all);
+
+      const ids = all.map(e => e.id);
+      if (ids.length === 0) {
+        setAttendeesByEvent({});
+        setLoading(false);
+        return;
+      }
+
+      const { data: rows } = await supabase
+        .from('attendance')
+        .select('event_id, status, runners(display_name, email)')
+        .in('event_id', ids)
+        .eq('status', 'yes');
+
+      const grouped: Record<string, any[]> = {};
+      (rows ?? []).forEach((r: any) => {
+        const eid = String(r.event_id);
+        const attendee = {
+          display_name: r.runners?.display_name ?? null,
+          email: r.runners?.email ?? null
+        };
+        if (!grouped[eid]) grouped[eid] = [];
+        grouped[eid].push(attendee);
+      });
+
+      setAttendeesByEvent(grouped);
+      setLoading(false);
+    };
+
+    load();
+  }, []);
+
+  const exportCsv = (eventId: string) => {
+    const list = attendeesByEvent[eventId] ?? [];
+    const header = 'Name;Email\n';
+    const body = list
+      .map(r => `${(r.display_name ?? '').replace(/;/g, ',')};${(r.email ?? '').replace(/;/g, ',')}`)
+      .join('\n');
+    const blob = new Blob([header + body], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `teilnehmer_${eventId}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-xl font-bold mb-2" style={{ color: colors.primary }}>
+          Teilnehmer – kommende Termine
+        </h3>
+        <p className="text-gray-600 mb-6">Direkte Übersicht inkl. Export pro Termin.</p>
+
+        {loading ? (
+          <p className="text-gray-600">Lade...</p>
+        ) : topEvents.length === 0 ? (
+          <p className="text-gray-600">Keine anstehenden Termine.</p>
+        ) : (
+          <div className="space-y-4">
+            {topEvents.map(ev => {
+              const list = attendeesByEvent[ev.id] ?? [];
+              return (
+                <div key={ev.id} className="p-6 rounded-xl border border-gray-200 bg-white">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <h4 className="font-bold text-lg">
+                        {new Date(ev.event_date).toLocaleDateString('de-DE', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </h4>
+                      <p className="text-gray-600">
+                        {ev.start_time?.slice(0, 5)} Uhr · {ev.location}
+                      </p>
+                      {ev.notes && (
+                        <p className="text-sm italic mt-2 text-gray-500">ℹ️ {ev.notes}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-3xl font-bold mb-1" style={{ color: colors.primary }}>
+                        {list.length}
+                      </div>
+                      <div className="text-sm text-gray-600 mb-3">Angemeldet</div>
+                      <button
+                        onClick={() => exportCsv(ev.id)}
+                        disabled={list.length === 0}
+                        className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{
+                          backgroundColor: list.length > 0 ? colors.success : colors.gray,
+                          color: 'white'
+                        }}
+                      >
+                        <Download className="w-4 h-4" />
+                        CSV exportieren
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap pt-4 border-t border-gray-200">
+                    {list.length === 0 ? (
+                      <span className="text-gray-500">Noch keine Zusagen.</span>
                     ) : (
-                      <>
-                        <button className="btn btn-join" onClick={()=>saveEdit(ev.id)}>Speichern</button>
-                        <button className="btn btn-logout" onClick={cancelEdit}>Abbrechen</button>
-                      </>
+                      list.map((p, i) => (
+                        <span
+                          key={i}
+                          className="px-3 py-1 rounded-full text-sm font-medium"
+                          style={{ backgroundColor: colors.accent, color: colors.primary }}
+                        >
+                          {p.display_name ?? '—'}
+                        </span>
+                      ))
                     )}
                   </div>
                 </div>
@@ -230,340 +600,225 @@ function EventsAdmin() {
       </div>
     </div>
   );
-}
+};
 
-/* =========================================================
-   Teilnehmer – nächste 3 als Kacheln + Dropdown für den Rest
-   ========================================================= */
-
-type Attendee = { display_name: string | null; email: string | null };
-type AttendeeMap = Record<string, Attendee[]>;
-
-function AttendeesAdmin() {
-  const [topEvents, setTopEvents] = useState<EventRow[]>([]);
-  const [otherEvents, setOtherEvents] = useState<EventRow[]>([]);
-  const [attendeesByEvent, setAttendeesByEvent] = useState<AttendeeMap>({});
-  const [loading, setLoading] = useState(true);
-  const [selectedOther, setSelectedOther] = useState<string>("");
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const today = new Date(); today.setHours(0,0,0,0);
-      const iso = today.toISOString().slice(0,10);
-
-      const { data: evs } = await supabase
-        .from("events")
-        .select("id,event_date,start_time,location,notes")
-        .gte("event_date", iso)
-        .order("event_date", { ascending: true });
-
-      const all = (evs as EventRow[]) ?? [];
-      const top = all.slice(0, 3);
-      const rest = all.slice(3);
-      setTopEvents(top);
-      setOtherEvents(rest);
-      if (!rest.length) setSelectedOther("");
-
-      const ids = all.map(e => e.id);
-      if (ids.length === 0) { setAttendeesByEvent({}); setLoading(false); return; }
-
-      const { data: rows, error } = await supabase
-        .from("attendance")
-        .select("event_id,status,runners(display_name,email)")
-        .in("event_id", ids)
-        .eq("status", "yes");
-
-      if (error) console.error(error);
-
-      const grouped: AttendeeMap = {};
-      (rows ?? []).forEach((r: any) => {
-        const eid = String(r.event_id);
-        const a: Attendee = { display_name: r.runners?.display_name ?? null, email: r.runners?.email ?? null };
-        if (!grouped[eid]) grouped[eid] = [];
-        grouped[eid].push(a);
-      });
-      setAttendeesByEvent(grouped);
-      setLoading(false);
-    })();
-  }, []);
-
-  function exportCsv(eventId: number|string) {
-    const list = attendeesByEvent[String(eventId)] ?? [];
-    const header = "Name;Email\n";
-    const body = list
-      .map(r => `${(r.display_name ?? "").replace(/;/g,",")};${(r.email ?? "").replace(/;/g,",")}`)
-      .join("\n");
-    const blob = new Blob([header + body], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `teilnehmer_${eventId}.csv`; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <div className="list-stack">
-      <div className="hero" style={{ marginBottom: 8 }}>
-        <h2 style={{ marginTop: 0, marginBottom: 8 }}>Teilnehmer – nächste 3 Termine</h2>
-        <p className="hero-sub">Direkte Übersicht inkl. Export pro Termin.</p>
-      </div>
-
-      {loading ? (
-        <p className="hero-sub">Lade…</p>
-      ) : (!topEvents.length && !otherEvents.length) ? (
-        <p className="hero-sub">Keine anstehenden Termine.</p>
-      ) : (
-        <>
-          <div className="list-stack">
-            {topEvents.map(ev => {
-              const list = attendeesByEvent[String(ev.id)] ?? [];
-              return (
-                <div key={ev.id} className="event-card" style={{ gridTemplateColumns: "1fr auto" }}>
-                  <div className="event-left">
-                    <div className="event-title">{fmtDate(ev.event_date)}</div>
-                    <div className="event-sub">{(ev.start_time ?? "").slice(0,5)} Uhr · {ev.location}</div>
-                    {ev.notes && <div className="note-badge">ℹ︎ {ev.notes}</div>}
-                    <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {list.length === 0 ? (
-                        <span className="hero-sub">Noch keine Zusagen.</span>
-                      ) : (
-                        list.map((p, i) => (
-                          <span key={i} style={{
-                            background:"#eef2ff", border:"1px solid #c7d2fe",
-                            color:"#1e3a8a", padding:"4px 8px", borderRadius: 999
-                          }}>
-                            {p.display_name ?? "—"}
-                          </span>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                  <div className="count-wrap" style={{ gap: 8, alignItems:"flex-start" }}>
-                    <div className="count-label">Angemeldet</div>
-                    <div className="count">{list.length}</div>
-                    <button className="btn btn-join" onClick={()=>exportCsv(ev.id)} disabled={list.length===0}>
-                      CSV exportieren
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {otherEvents.length > 0 && (
-            <div className="hero" style={{ marginTop: 8, display:"grid", gap:8 }}>
-              <h3 style={{ margin: 0 }}>Weitere Termine</h3>
-              <select
-                value={selectedOther}
-                onChange={(e)=>setSelectedOther(e.target.value)}
-                style={{ padding:"8px 10px", borderRadius:8, border:"1px solid #d1d5db", maxWidth:520 }}
-              >
-                <option value="">– Termin wählen –</option>
-                {otherEvents.map(ev => (
-                  <option key={ev.id} value={String(ev.id)}>
-                    {fmtDate(ev.event_date)} · {(ev.start_time ?? "").slice(0,5)} · {ev.location}
-                  </option>
-                ))}
-              </select>
-
-              {selectedOther && (() => {
-                const ev = otherEvents.find(e => String(e.id) === selectedOther)!;
-                const list = attendeesByEvent[String(ev.id)] ?? [];
-                return (
-                  <div className="event-card" style={{ gridTemplateColumns:"1fr auto" }}>
-                    <div className="event-left">
-                      <div className="event-title">{fmtDate(ev.event_date)}</div>
-                      <div className="event-sub">{(ev.start_time ?? "").slice(0,5)} Uhr · {ev.location}</div>
-                      {ev.notes && <div className="note-badge">ℹ︎ {ev.notes}</div>}
-                      <div style={{ marginTop: 10, display:"flex", gap:6, flexWrap:"wrap" }}>
-                        {list.length === 0 ? (
-                          <span className="hero-sub">Noch keine Zusagen.</span>
-                        ) : (
-                          list.map((p, i) => (
-                            <span key={i} style={{
-                              background:"#eef2ff", border:"1px solid #c7d2fe",
-                              color:"#1e3a8a", padding:"4px 8px", borderRadius: 999
-                            }}>
-                              {p.display_name ?? "—"}
-                            </span>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                    <div className="count-wrap" style={{ gap:8, alignItems:"flex-start" }}>
-                      <div className="count-label">Angemeldet</div>
-                      <div className="count">{list.length}</div>
-                      <button className="btn btn-join" onClick={()=>exportCsv(ev.id)} disabled={list.length===0}>
-                        CSV exportieren
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-/* =========================================================
-   Läufer – Liste & Suche + CSV-Export + ICS-Link-kopieren (mit Kalendersymbol)
-   ========================================================= */
-
-function RunnersAdmin() {
-  const [q, setQ] = useState("");
+const LauferTab = () => {
+  const [q, setQ] = useState('');
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const supabase = createClientComponentClient();
 
-  useEffect(()=>{ (async ()=>{
-    setLoading(true);
-    const query = supabase
-      .from("runners")
-      .select("id,display_name,email,is_admin,ical_token")   // <-- ical_token mitladen
-      .order("display_name", { ascending: true });
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const query = supabase
+        .from('runners')
+        .select('id, display_name, email, is_admin, ical_token')
+        .order('display_name', { ascending: true });
 
-    const { data } = q ? await query.ilike("display_name", `%${q}%`) : await query;
-    setRows(data ?? []);
-    setLoading(false);
-  })(); }, [q]);
+      const { data } = q
+        ? await query.ilike('display_name', `%${q}%`)
+        : await query;
 
-  function exportCsv() {
-    const header = "Name;Email;Admin\n";
-    const body = rows.map((r:any) =>
-      `${(r.display_name ?? "").replace(/;/g,",")};${(r.email ?? "").replace(/;/g,",")};${r.is_admin ? "ja" : "nein"}`
-    ).join("\n");
-    const blob = new Blob([header + body], { type: "text/csv;charset=utf-8" });
+      setRows(data ?? []);
+      setLoading(false);
+    };
+
+    load();
+  }, [q]);
+
+  const exportCsv = () => {
+    const header = 'Name;Email;Admin\n';
+    const body = rows
+      .map((r: any) =>
+        `${(r.display_name ?? '').replace(/;/g, ',')};${(r.email ?? '').replace(/;/g, ',')};${r.is_admin ? 'ja' : 'nein'}`
+      )
+      .join('\n');
+    const blob = new Blob([header + body], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `laeufer_export.csv`; a.click();
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'laeufer_export.csv';
+    a.click();
     URL.revokeObjectURL(url);
-  }
+  };
 
-  async function copyIcs(r:any) {
-    if (!r?.ical_token) { alert("Kein iCal-Token vorhanden."); return; }
-    const base = typeof window !== "undefined" ? window.location.origin : "";
+  const copyIcs = async (r: any) => {
+    if (!r?.ical_token) {
+      alert('Kein iCal-Token vorhanden.');
+      return;
+    }
+    const base = typeof window !== 'undefined' ? window.location.origin : '';
     const url = `${base}/api/ical/${r.ical_token}`;
     try {
       await navigator.clipboard.writeText(url);
       alert(`ICS-Link kopiert:\n${url}`);
     } catch {
-      // Fallback
-      const el = document.createElement("textarea");
-      el.value = url; document.body.appendChild(el);
-      el.select(); document.execCommand("copy"); document.body.removeChild(el);
-      alert(`ICS-Link kopiert:\n${url}`);
+      alert('Konnte nicht in Zwischenablage kopieren.');
     }
-  }
+  };
 
   return (
-    <div className="hero">
-      <h2 style={{ marginTop: 0 }}>Läufer</h2>
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+    <div className="space-y-6">
+      <div className="flex gap-4 items-center flex-wrap">
         <input
           value={q}
-          onChange={(e)=>setQ(e.target.value)}
+          onChange={(e) => setQ(e.target.value)}
           placeholder="Suche nach Name"
-          style={{ padding:"8px 10px", borderRadius:8, border:"1px solid #d1d5db", width:"100%", maxWidth:380 }}
+          className="flex-1 min-w-[300px] px-4 py-2 rounded-lg border border-gray-300"
         />
-        <button className="btn btn-join" onClick={exportCsv} disabled={rows.length===0}>
+        <button
+          onClick={exportCsv}
+          disabled={rows.length === 0}
+          className="px-5 py-2 rounded-lg font-medium flex items-center gap-2 transition-all disabled:opacity-50"
+          style={{ backgroundColor: colors.success, color: 'white' }}
+        >
+          <Download className="w-4 h-4" />
           CSV exportieren
         </button>
       </div>
 
-      <div style={{ marginTop:12 }}>
-        {loading ? <p>Lade…</p> :
-          rows.length===0 ? <p>Keine Treffer.</p> : (
-            <ul style={{ paddingLeft: 18 }}>
-              {rows.map(r => (
-                <li key={r.id} style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                  <span>
-                    <strong>{r.display_name}</strong> <span style={{ color:"#6b7280" }}>({r.email})</span>
-                    {r.is_admin && <span style={{ marginLeft:8, color:"#065f46" }}>• Admin</span>}
-                  </span>
-
-                  {/* ICS-Link kopieren mit Kalendersymbol */}
+      <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-200">
+        {loading ? (
+          <div className="p-6 text-center text-gray-600">Lade...</div>
+        ) : rows.length === 0 ? (
+          <div className="p-6 text-center text-gray-600">Keine Treffer.</div>
+        ) : (
+          rows.map(r => (
+            <div key={r.id} className="p-6 hover:bg-gray-50 transition-colors">
+              <div className="flex justify-between items-center">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="font-bold text-lg">{r.display_name}</span>
+                    {r.is_admin && (
+                      <span
+                        className="px-2 py-1 rounded text-xs font-medium text-white"
+                        style={{ backgroundColor: colors.primary }}
+                      >
+                        Admin
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-600">{r.email}</p>
+                </div>
+                <div className="flex items-center gap-4">
                   {r.ical_token ? (
-                    <button className="icon-btn" onClick={()=>copyIcs(r)} title="ICS-Link kopieren">
-                      {/* Kalender-Icon (inline SVG) */}
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-                        <path d="M7 2a1 1 0 0 0-1 1v1H5a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-1V3a1 1 0 1 0-2 0v1H8V3a1 1 0 0 0-1-1ZM5 8h14v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8Zm3 3h3v3H8v-3Z"/>
-                      </svg>
-                      <span>ICS-Link</span>
+                    <button
+                      onClick={() => copyIcs(r)}
+                      className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all"
+                      style={{ backgroundColor: colors.primary, color: 'white' }}
+                    >
+                      <Calendar className="w-4 h-4" />
+                      ICS-Link
                     </button>
                   ) : (
-                    <span className="hero-sub" style={{ fontSize:12 }}>kein ICS-Token</span>
+                    <span className="text-sm text-gray-400">kein ICS-Token</span>
                   )}
-                </li>
-              ))}
-            </ul>
-          )
-        }
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
-}
+};
 
-/* =========================================================
-   Nachrichten – an alle Registrierten oder nur Angemeldete eines Termins
-   (verwendet /api/notify)
-   ========================================================= */
-
-function MessagesAdmin() {
+const NachrichtenTab = () => {
   const [events, setEvents] = useState<EventRow[]>([]);
-  const [sel, setSel] = useState<number | string | "">("");
-  const [body, setBody] = useState("");
+  const [sel, setSel] = useState<string>('');
+  const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
+  const supabase = createClientComponentClient();
 
-  useEffect(()=>{ (async ()=>{
-    const { data } = await supabase
-      .from("events")
-      .select("id,event_date,start_time,location")
-      .order("event_date", { ascending: true });
-    setEvents((data as any[]) ?? []);
-  })(); }, []);
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from('events')
+        .select('id, event_date, start_time, location, title')
+        .order('event_date', { ascending: true });
+      setEvents((data as EventRow[]) ?? []);
+    };
+    load();
+  }, []);
 
-  async function send() {
+  const send = async () => {
     if (!body.trim()) return;
     setSending(true);
-    const res = await fetch("/api/notify", {
-      method: "POST",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ eventId: sel ? sel : null, body }),
+
+    const res = await fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventId: sel ? sel : null,
+        body
+      })
     });
+
     setSending(false);
-    if (!res.ok) { const t = await res.text(); alert("Senden fehlgeschlagen: " + t); return; }
-    setBody(""); alert("Nachricht versendet.");
-  }
+
+    if (!res.ok) {
+      const t = await res.text();
+      alert('Senden fehlgeschlagen: ' + t);
+      return;
+    }
+
+    setBody('');
+    alert('Nachricht versendet.');
+  };
 
   return (
-    <div className="hero" style={{ display:"grid", gap:8 }}>
-      <h2 style={{ marginTop: 0 }}>Nachrichten</h2>
+    <div className="space-y-6 max-w-3xl">
+      <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 space-y-4">
+        <h3 className="text-xl font-bold" style={{ color: colors.primary }}>
+          Nachrichten
+        </h3>
 
-      <label style={{ fontWeight:600 }}>Empfänger</label>
-      <select value={sel as any} onChange={(e)=>setSel(e.target.value)}
-              style={{ padding:"8px 10px", borderRadius:8, border:"1px solid #d1d5db", maxWidth:520 }}>
-        <option value="">Alle registrierten Läufer/innen</option>
-        {events.map(ev => (
-          <option key={ev.id} value={ev.id}>
-            Nur Angemeldete für: {fmtDate(ev.event_date)} · {(ev.start_time ?? "").slice(0,5)} · {ev.location}
-          </option>
-        ))}
-      </select>
+        <div>
+          <label className="block text-sm font-medium mb-2 text-gray-700">
+            Empfänger
+          </label>
+          <select
+            value={sel}
+            onChange={(e) => setSel(e.target.value)}
+            className="w-full px-4 py-3 rounded-lg border border-gray-300"
+          >
+            <option value="">Alle registrierten Läufer/innen</option>
+            {events.map(ev => (
+              <option key={ev.id} value={ev.id}>
+                Nur Angemeldete für: {new Date(ev.event_date).toLocaleDateString('de-DE')} · {ev.start_time?.slice(0, 5)} · {ev.location}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <label style={{ fontWeight:600, marginTop:6 }}>Text</label>
-      <textarea value={body} onChange={(e)=>setBody(e.target.value)}
-                rows={6} style={{ padding:"10px 12px", borderRadius:8, border:"1px solid #d1d5db" }}/>
-      <div>
-        <button className="btn btn-join" onClick={send} disabled={sending || !body.trim()}>
-          {sending ? "Senden…" : "Senden"}
+        <div>
+          <label className="block text-sm font-medium mb-2 text-gray-700">
+            Text
+          </label>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={6}
+            className="w-full px-4 py-3 rounded-lg border border-gray-300"
+            placeholder="Schreibe deine Nachricht..."
+          />
+        </div>
+
+        <button
+          onClick={send}
+          disabled={sending || !body.trim()}
+          className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ backgroundColor: colors.success }}
+        >
+          <Mail className="w-5 h-5" />
+          {sending ? 'Senden...' : 'Senden'}
         </button>
-      </div>
 
-      <p className="hero-sub" style={{ marginTop:4 }}>
-        Hinweis: „Empfänger = leer“ → E-Mail an alle registrierten Runner (globaler Verteiler).
-      </p>
+        <p className="text-sm text-gray-600">
+          Hinweis: „Empfänger = leer" → E-Mail an alle registrierten Runner (globaler Verteiler).
+        </p>
+      </div>
     </div>
   );
-}
+};

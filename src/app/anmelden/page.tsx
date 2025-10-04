@@ -1,83 +1,90 @@
-// src/app/anmelden/page.tsx
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-export default function SignupPage() {
-  const sp = useSearchParams();
+export default function AnmeldenPage() {
   const router = useRouter();
-  const run = sp.get('run') ?? '';
+  const params = useSearchParams();
+  const err = params.get("error");
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [busy, setBusy] = useState(false);
+  const supabase = createClientComponentClient();
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const disabled = useMemo(() => !name || !email || busy, [name, email, busy]);
-
-  async function submit(e: React.FormEvent) {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true); setMsg(null);
+    setLoading(true);
+    setMsg(null);
+    try {
+      const base =
+        process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
 
-    const res = await fetch('/api/signup', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ run_id: run, name, email }),
-    });
-
-    const json = await res.json();
-    setBusy(false);
-
-    if (!res.ok) {
-      setMsg(json?.error ?? 'Fehler bei der Anmeldung.');
-      return;
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          // WICHTIG: richtiger Pfad für App Router
+          emailRedirectTo: `${base}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+      setSent(true);
+      setMsg("E-Mail gesendet. Bitte Posteingang prüfen.");
+    } catch (e: any) {
+      setMsg(e.message ?? "Unbekannter Fehler");
+    } finally {
+      setLoading(false);
     }
-    setMsg('Danke! Deine Anmeldung wurde eingetragen.');
-    setTimeout(() => router.push('/'), 1200);
-  }
-
-  useEffect(() => {
-    if (!run) setMsg('Kein Termin angegeben.');
-  }, [run]);
+  };
 
   return (
-    <main className="container-fh py-8">
-      <h1 className="h1 mb-6">Anmeldung</h1>
+    <div className="mx-auto max-w-md p-6">
+      <h1 className="text-2xl font-semibold mb-2">Anmelden</h1>
+      <p className="text-sm text-neutral-600 mb-6">
+        Bitte E-Mail eingeben. Du bekommst einen Magic-Link.
+      </p>
 
-      <form onSubmit={submit} className="max-w-md space-y-4 rounded-[var(--radius-card)] border border-slate-200/70 bg-white p-5 shadow-[var(--shadow-soft)]">
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Name</label>
-          <input
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--fh-blue)]"
-            value={name} onChange={(e)=>setName(e.target.value)} required
-          />
+      {err && (
+        <div className="mb-4 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {err}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700">E-Mail (Hochschule)</label>
-          <input
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--fh-blue)]"
-            type="email" value={email} onChange={(e)=>setEmail(e.target.value)} required
-            placeholder="vorname.nachname@student.haw-kiel.de"
-          />
-        </div>
+      )}
 
-        <div className="flex gap-2">
+      {msg && (
+        <div className="mb-4 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {msg}
+        </div>
+      )}
+
+      {!sent ? (
+        <form onSubmit={onSubmit} className="space-y-3">
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@beispiel.de"
+            className="w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-[#00305D]"
+          />
           <button
-            disabled={disabled}
-            className="rounded-lg bg-[var(--fh-blue)] px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            type="submit"
+            disabled={loading}
+            className="rounded-md bg-[#00305D] px-4 py-2 text-white disabled:opacity-60"
           >
-            {busy ? 'Sende…' : 'Anmelden'}
+            {loading ? "Sende..." : "Magic-Link senden"}
           </button>
-          <a href="/" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 hover:bg-slate-50">
-            Abbrechen
-          </a>
-        </div>
-
-        {msg && (
-          <p className="text-sm text-slate-700">{msg}</p>
-        )}
-      </form>
-    </main>
+        </form>
+      ) : (
+        <button
+          className="mt-2 text-sm underline"
+          onClick={() => router.refresh()}
+        >
+          Erneut versuchen
+        </button>
+      )}
+    </div>
   );
 }

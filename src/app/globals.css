@@ -1,31 +1,23 @@
-/* Tailwind v4: one import instead of @tailwind base/components/utilities */
 @import "tailwindcss";
 
-/* Optional: HAW Kiel theming tokens (v4 @theme) */
 @theme {
-  --fh-blue: #00305D;
-  --fh-blue-50: color-mix(in oklab, var(--fh-blue) 12%, white);
-  --fh-blue-600: var(--fh-blue);
-
-  --fh-orange: #E07624;
-  --fh-yellow: #EABA14;
-
-  --radius-card: 12px;
-  --shadow-soft: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+  --color-fh-blue: #00305D;
 }
 
-/* Global (not a CSS module) — safe with @apply in v4 */
-:root { color-scheme: light; }
-
-html, body { height: 100%; }
-
-body {
-  @apply text-slate-900 antialiased;
-  background: #fff;        /* use a literal to avoid apply warnings during setup */
+:root {
+  --fh-blue: var(--color-fh-blue);
 }
 
-/* Layout helper */
-.container-fh { @apply max-w-6xl mx-auto px-4 sm:px-6; }
-
-/* H1 sample with CD color */
-.h1 { @apply text-2xl sm:text-3xl font-semibold tracking-tight; color: var(--fh-blue); }
+/* kleine, risikoarme Cosmetik */
+.card {
+  @apply rounded-lg border border-slate-200 bg-white;
+}
+.badge {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+}
+.badge--primary {
+  @apply bg-blue-50 text-blue-700;
+}
+.badge--hint {
+  @apply bg-amber-50 text-amber-700;
+}

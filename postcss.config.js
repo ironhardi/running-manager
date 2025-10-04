@@ -1,7 +1,7 @@
-/** Tailwind v4 + PostCSS (Turbopack-friendly) */
+// postcss.config.js
 module.exports = {
   plugins: {
-    '@tailwindcss/postcss': {},
+    "@tailwindcss/postcss": {},
     autoprefixer: {},
   },
 };
