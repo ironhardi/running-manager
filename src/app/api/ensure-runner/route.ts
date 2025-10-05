@@ -51,12 +51,21 @@ export async function POST(request: Request) {
     // 4. Runner erstellen (mit Service-Role)
     const displayName = email.split('@')[0];
     
+    // Versuche Vorname aus E-Mail zu extrahieren (Format: vorname.nachname@...)
+    let firstName = displayName;
+    if (displayName.includes('.')) {
+      const parts = displayName.split('.');
+      firstName = parts[0];
+    }
+    // Erster Buchstabe groß
+    const capitalizedName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+    
     const { data: newRunner, error: insertError } = await supabaseAdmin
       .from('runners')
       .insert({
         auth_user: userId,
         email: email,
-        display_name: displayName,
+        display_name: capitalizedName,
         is_admin: false
       })
       .select('id, display_name, is_admin')
