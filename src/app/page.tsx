@@ -25,7 +25,6 @@ export default function Home() {
   const supabase = createClientComponentClient();
   const router = useRouter();
 
-  // Motivationsspruch laden
   useEffect(() => {
     const loadQuote = async () => {
       try {
@@ -234,46 +233,48 @@ export default function Home() {
 
     return (
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.primary }}>
-              <Users className="w-6 h-6 text-white" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: colors.primary }}>
+                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold" style={{ color: colors.primary }}>Lauf Manager</h1>
+                <p className="text-xs sm:text-sm text-gray-600">Laufgruppe HAW Kiel</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: colors.primary }}>Lauf Manager</h1>
-              <p className="text-sm text-gray-600">Laufgruppe HAW Kiel</p>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            {user ? (
-              <>
-                {isAdmin && !checkingAdmin && (
-                  <a 
-                    href="/admin" 
-                    className="px-5 py-2 text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg" 
-                    style={{ backgroundColor: colors.primary }}
+            <div className="flex gap-2 sm:gap-3">
+              {user ? (
+                <>
+                  {isAdmin && !checkingAdmin && (
+                    <a 
+                      href="/admin" 
+                      className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg" 
+                      style={{ backgroundColor: colors.primary }}
+                    >
+                      Admin
+                    </a>
+                  )}
+                  <button 
+                    onClick={handleLogout} 
+                    className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg flex items-center gap-1 sm:gap-2" 
+                    style={{ backgroundColor: colors.error }}
                   >
-                    Adminbereich
-                  </a>
-                )}
-                <button 
-                  onClick={handleLogout} 
-                  className="px-5 py-2 text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg flex items-center gap-2" 
-                  style={{ backgroundColor: colors.error }}
+                    <LogOut className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">Abmelden</span>
+                  </button>
+                </>
+              ) : (
+                <a 
+                  href="/anmelden" 
+                  className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg" 
+                  style={{ backgroundColor: colors.primary }}
                 >
-                  <LogOut className="w-4 h-4" />
-                  Abmelden
-                </button>
-              </>
-            ) : (
-              <a 
-                href="/anmelden" 
-                className="px-5 py-2 text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg" 
-                style={{ backgroundColor: colors.primary }}
-              >
-                Anmelden
-              </a>
-            )}
+                  Anmelden
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -298,16 +299,16 @@ export default function Home() {
     <div className="min-h-screen" style={{ backgroundColor: colors.lightGray }}>
       <Header />
       
-      <div className="max-w-5xl mx-auto px-6 py-12">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-8 border-b border-gray-100">
+          <div className="p-4 sm:p-8 border-b border-gray-100">
             <div className="flex gap-4 items-start">
               <svg 
                 width="48" 
                 height="48" 
                 viewBox="0 0 48 48" 
                 fill="none" 
-                className="flex-shrink-0 mt-1"
+                className="flex-shrink-0 mt-1 hidden sm:block"
                 style={{ opacity: 0.15 }}
               >
                 <path 
@@ -320,11 +321,11 @@ export default function Home() {
                 />
               </svg>
               <div className="flex-1">
-                <p className="text-xl text-gray-700 leading-relaxed mb-3 italic">
+                <p className="text-lg sm:text-xl text-gray-700 leading-relaxed mb-2 sm:mb-3 italic">
                   {motivationQuote.quote}
                 </p>
                 {motivationQuote.author && (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-xs sm:text-sm text-gray-500">
                     — {motivationQuote.author}
                   </p>
                 )}
@@ -338,7 +339,7 @@ export default function Home() {
             )}
           </div>
 
-          <div className="p-8 space-y-8">
+          <div className="p-4 sm:p-8 space-y-4 sm:space-y-8">
             {runs.length === 0 ? (
               <div className="text-center py-12">
                 <Calendar className="w-16 h-16 mx-auto mb-4" style={{ color: colors.gray, opacity: 0.3 }} />
@@ -361,17 +362,17 @@ export default function Home() {
                     `}
                     style={isNextRun ? { borderColor: colors.primary } : {}}
                   >
-                    <div className="p-6 pb-4">
+                    <div className="p-4 sm:p-6 pb-3 sm:pb-4">
                       {isNextRun && (
                         <span 
-                          className="inline-block px-3 py-1 rounded-full text-xs font-bold text-white mb-3"
+                          className="inline-block px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-bold text-white mb-2 sm:mb-3"
                           style={{ backgroundColor: colors.primary }}
                         >
                           Nächster Termin
                         </span>
                       )}
                       
-                      <h3 className="text-xl font-bold mb-3" style={{ color: colors.primary }}>
+                      <h3 className="text-lg sm:text-xl font-bold mb-2 sm:mb-3" style={{ color: colors.primary }}>
                         {new Date(run.start_at).toLocaleDateString('de-DE', { 
                           weekday: 'long', 
                           year: 'numeric', 
@@ -380,7 +381,7 @@ export default function Home() {
                         })}
                       </h3>
                       
-                      <div className="flex flex-wrap gap-4 text-gray-600">
+                      <div className="flex flex-wrap gap-2 sm:gap-4 text-sm sm:text-base text-gray-600">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4" />
                           <span className="font-medium">
@@ -400,25 +401,25 @@ export default function Home() {
                       </div>
                       
                       {run.note && (
-                        <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                          <p className="text-sm text-amber-900">
+                        <div className="mt-3 p-2 sm:p-3 rounded-lg bg-amber-50 border border-amber-200">
+                          <p className="text-xs sm:text-sm text-amber-900">
                             <span className="font-semibold">ℹ️ Hinweis:</span> {run.note}
                           </p>
                         </div>
                       )}
                     </div>
 
-                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+                    <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t border-gray-100">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
                           <div 
-                            className="flex items-center justify-center w-10 h-10 rounded-full"
+                            className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full"
                             style={{ backgroundColor: colors.accent }}
                           >
-                            <Users className="w-5 h-5" style={{ color: colors.primary }} />
+                            <Users className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: colors.primary }} />
                           </div>
                           <div>
-                            <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                            <div className="text-xl sm:text-2xl font-bold" style={{ color: colors.primary }}>
                               {run.attendees || 0}
                             </div>
                             <div className="text-xs text-gray-600">Teilnehmer</div>
@@ -426,7 +427,7 @@ export default function Home() {
                         </div>
                         
                         {run.attendeeNames && run.attendeeNames.length > 0 && (
-                          <div className="text-right text-sm text-gray-600 max-w-md">
+                          <div className="text-right text-xs sm:text-sm text-gray-600 max-w-[50%] sm:max-w-md truncate">
                             {run.attendeeNames.slice(0, 3).join(', ')}
                             {run.attendeeNames.length > 3 && ` +${run.attendeeNames.length - 3}`}
                           </div>
@@ -435,12 +436,12 @@ export default function Home() {
                     </div>
 
                     {user && runnerId && (
-                      <div className="p-6 pt-5 bg-white rounded-b-2xl border-t border-gray-100">
-                        <div className="flex gap-3">
+                      <div className="p-4 sm:p-6 pt-4 sm:pt-5 bg-white rounded-b-2xl border-t border-gray-100">
+                        <div className="flex gap-2 sm:gap-3">
                           <button
                             onClick={() => handleAttendance(run.id, 'yes')}
                             className={`
-                              flex-1 py-3.5 px-5 rounded-xl font-semibold 
+                              flex-1 py-2.5 sm:py-3.5 px-4 sm:px-5 rounded-xl font-semibold text-sm sm:text-base
                               transition-all duration-200
                               flex items-center justify-center gap-2
                               ${userStatus === 'yes' 
@@ -450,14 +451,14 @@ export default function Home() {
                             `}
                             style={userStatus === 'yes' ? { backgroundColor: colors.success } : {}}
                           >
-                            <CheckCircle className="w-5 h-5" />
+                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                             <span>{userStatus === 'yes' ? 'Zugesagt' : 'Zusagen'}</span>
                           </button>
                           
                           <button
                             onClick={() => handleAttendance(run.id, 'no')}
                             className={`
-                              flex-1 py-3.5 px-5 rounded-xl font-semibold 
+                              flex-1 py-2.5 sm:py-3.5 px-4 sm:px-5 rounded-xl font-semibold text-sm sm:text-base
                               transition-all duration-200
                               flex items-center justify-center gap-2
                               ${userStatus === 'no' 
@@ -467,7 +468,7 @@ export default function Home() {
                             `}
                             style={userStatus === 'no' ? { backgroundColor: colors.error } : {}}
                           >
-                            <XCircle className="w-5 h-5" />
+                            <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                             <span>{userStatus === 'no' ? 'Abgesagt' : 'Absagen'}</span>
                           </button>
                         </div>
