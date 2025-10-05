@@ -44,7 +44,7 @@ export default function Home() {
             
             return { author, quote: cleanQuote };
           })
-          .filter(q => q && q.quote && q.author);
+          .filter((q): q is { author: string; quote: string } => q !== null && !!q.quote && !!q.author);
         
         if (quotes.length > 0) {
           const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
