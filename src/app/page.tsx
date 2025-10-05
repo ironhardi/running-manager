@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, CheckCircle, XCircle, Mail } from 'lucide-react';
+import { Users, Calendar, CheckCircle, XCircle, Mail, LogOut } from 'lucide-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useRouter } from 'next/navigation';
 
 const colors = {
   primary: '#00305D',
@@ -20,72 +21,153 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [runnerId, setRunnerId] = useState<string | null>(null);
   const [userAttendance, setUserAttendance] = useState<Record<string, string>>({});
+  const [motivationQuote, setMotivationQuote] = useState({ quote: '', author: '' });
   const supabase = createClientComponentClient();
+  const router = useRouter();
 
-  // User Session laden
+  // Motivationsspruch laden
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        // Runner ID laden
-        const { data: runner } = await supabase
-          .from('runners')
-          .select('id')
-          .eq('auth_user', session.user.id)
-          .single();
+    const loadQuote = async () => {
+      try {
+        const response = await fetch('/lauf_motivation.csv');
+        const text = await response.text();
+        const lines = text.split('\n').slice(1);
+        const quotes = lines
+          .filter(line => line.trim())
+          .map(line => {
+            const firstComma = line.indexOf(',');
+            if (firstComma === -1) return null;
+            
+            const author = line.substring(0, firstComma).trim();
+            const quote = line.substring(firstComma + 1).trim();
+            const cleanQuote = quote.replace(/^["']|["']$/g, '').trim();
+            
+            return { author, quote: cleanQuote };
+          })
+          .filter(q => q && q.quote && q.author);
         
-        if (runner) {
-          setRunnerId(runner.id);
+        if (quotes.length > 0) {
+          const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+          setMotivationQuote(randomQuote);
         }
+      } catch (error) {
+        console.error('Error loading quote:', error);
+        setMotivationQuote({ 
+          quote: 'Schnür die Schuhe und sei dabei – melde dich jetzt für die nächsten Termine an.', 
+          author: '' 
+        });
       }
     };
-    getUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
+    loadQuote();
   }, []);
 
-  // Läufe und eigene Anmeldungen laden
-  const fetchData = async () => {
+  const ensureRunner = async (session: any) => {
+    if (!session) return null;
+
     try {
-      // Läufe laden
-      const response = await fetch('/api/runs');
-      const data = await response.json();
-      setRuns(data.runs || []);
+      const response = await fetch('/api/ensure-runner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
 
-      // Wenn eingeloggt: eigene Anmeldungen laden
-      if (runnerId) {
-        const { data: attendances } = await supabase
-          .from('attendance')
-          .select('event_id, status')
-          .eq('runner_id', runnerId);
-
-        const attendanceMap: Record<string, string> = {};
-        (attendances || []).forEach((a: any) => {
-          attendanceMap[a.event_id] = a.status;
-        });
-        setUserAttendance(attendanceMap);
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Ensure runner error:', error);
+        return null;
       }
+
+      const data = await response.json();
+      
+      if (data.success && data.runner) {
+        if (data.created) {
+          router.push('/profil');
+          return null;
+        }
+        
+        if (!data.runner.display_name || data.runner.display_name === session.user.email?.split('@')[0]) {
+          router.push('/profil');
+          return null;
+        }
+        
+        return data.runner.id;
+      }
+
+      return null;
     } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error ensuring runner:', error);
+      return null;
     }
   };
 
   useEffect(() => {
-    fetchData();
-  }, [runnerId]);
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        const id = await ensureRunner(session);
+        setRunnerId(id);
+      }
+    };
+    
+    initAuth();
 
-  // An-/Abmeldung
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        const id = await ensureRunner(session);
+        setRunnerId(id);
+      } else {
+        setRunnerId(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase, router]);
+
+  useEffect(() => {
+    const loadRuns = async () => {
+      try {
+        const response = await fetch('/api/runs');
+        const data = await response.json();
+        setRuns(data.runs || []);
+      } catch (error) {
+        console.error('Error fetching runs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRuns();
+  }, []);
+
+  useEffect(() => {
+    const loadAttendances = async () => {
+      if (!runnerId) return;
+
+      const { data: attendances } = await supabase
+        .from('attendance')
+        .select('event_id, status')
+        .eq('runner_id', runnerId);
+
+      const attendanceMap: Record<string, string> = {};
+      (attendances || []).forEach((a: any) => {
+        attendanceMap[a.event_id] = a.status;
+      });
+      setUserAttendance(attendanceMap);
+
+      const response = await fetch('/api/runs');
+      const data = await response.json();
+      setRuns(data.runs || []);
+    };
+
+    loadAttendances();
+  }, [runnerId, supabase]);
+
   const handleAttendance = async (eventId: string, newStatus: 'yes' | 'no') => {
     if (!runnerId) {
-      console.error('No runner ID');
+      alert('Fehler: Kein Runner-Account gefunden. Bitte melde dich neu an.');
       return;
     }
 
@@ -105,14 +187,14 @@ export default function Home() {
         return;
       }
 
-      // Lokalen State sofort aktualisieren
       setUserAttendance(prev => ({
         ...prev,
         [eventId]: newStatus
       }));
 
-      // Läufe neu laden für aktualisierte Teilnehmerzahlen
-      await fetchData();
+      const response = await fetch('/api/runs');
+      const data = await response.json();
+      setRuns(data.runs || []);
 
     } catch (error) {
       console.error('Error:', error);
@@ -120,32 +202,83 @@ export default function Home() {
     }
   };
 
-  const Header = () => (
-    <header className="bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.primary }}>
-            <Users className="w-6 h-6 text-white" />
+  const Header = () => {
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [checkingAdmin, setCheckingAdmin] = useState(true);
+
+    useEffect(() => {
+      const checkAdmin = async () => {
+        if (!user) {
+          setIsAdmin(false);
+          setCheckingAdmin(false);
+          return;
+        }
+
+        const { data: runner } = await supabase
+          .from('runners')
+          .select('is_admin')
+          .eq('auth_user', user.id)
+          .maybeSingle();
+
+        setIsAdmin(!!runner?.is_admin);
+        setCheckingAdmin(false);
+      };
+
+      checkAdmin();
+    }, [user?.id]);
+
+    const handleLogout = async () => {
+      await supabase.auth.signOut();
+      router.push('/anmelden');
+    };
+
+    return (
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.primary }}>
+              <Users className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold" style={{ color: colors.primary }}>Lauf Manager</h1>
+              <p className="text-sm text-gray-600">Laufgruppe HAW Kiel</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: colors.primary }}>Lauf Manager</h1>
-            <p className="text-sm text-gray-600">Laufgruppe HAW Kiel · marco.hardiman@fh-kiel.de</p>
+          <div className="flex gap-3">
+            {user ? (
+              <>
+                {isAdmin && !checkingAdmin && (
+                  <a 
+                    href="/admin" 
+                    className="px-5 py-2 text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg" 
+                    style={{ backgroundColor: colors.primary }}
+                  >
+                    Adminbereich
+                  </a>
+                )}
+                <button 
+                  onClick={handleLogout} 
+                  className="px-5 py-2 text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg flex items-center gap-2" 
+                  style={{ backgroundColor: colors.error }}
+                >
+                  <LogOut className="w-4 h-4" />
+                  Abmelden
+                </button>
+              </>
+            ) : (
+              <a 
+                href="/anmelden" 
+                className="px-5 py-2 text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg" 
+                style={{ backgroundColor: colors.primary }}
+              >
+                Anmelden
+              </a>
+            )}
           </div>
         </div>
-        <div className="flex gap-3">
-          {user ? (
-            <a href="/admin" className="px-5 py-2 text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg" style={{ backgroundColor: colors.primary }}>
-              Adminbereich
-            </a>
-          ) : (
-            <a href="/anmelden" className="px-5 py-2 text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg" style={{ backgroundColor: colors.primary }}>
-              Anmelden
-            </a>
-          )}
-        </div>
-      </div>
-    </header>
-  );
+      </header>
+    );
+  };
 
   if (loading) {
     return (
@@ -168,12 +301,35 @@ export default function Home() {
       <div className="max-w-5xl mx-auto px-6 py-12">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-8 border-b border-gray-100">
-            <h2 className="text-3xl font-bold mb-3" style={{ color: colors.primary }}>
-              Kommende Läufe
-            </h2>
-            <p className="text-gray-600 text-lg">
-              Schnür die Schuhe und sei dabei – melde dich jetzt für die nächsten Termine an.
-            </p>
+            <div className="flex gap-4 items-start">
+              <svg 
+                width="48" 
+                height="48" 
+                viewBox="0 0 48 48" 
+                fill="none" 
+                className="flex-shrink-0 mt-1"
+                style={{ opacity: 0.15 }}
+              >
+                <path 
+                  d="M14 18C14 12 10 8 4 8V12C6 12 8 13 8 16V18H14ZM14 18V28H4V18H14Z" 
+                  fill={colors.primary}
+                />
+                <path 
+                  d="M34 18C34 12 30 8 24 8V12C26 12 28 13 28 16V18H34ZM34 18V28H24V18H34Z" 
+                  fill={colors.primary}
+                />
+              </svg>
+              <div className="flex-1">
+                <p className="text-xl text-gray-700 leading-relaxed mb-3 italic">
+                  {motivationQuote.quote}
+                </p>
+                {motivationQuote.author && (
+                  <p className="text-sm text-gray-500">
+                    — {motivationQuote.author}
+                  </p>
+                )}
+              </div>
+            </div>
             {!user && (
               <a href="/anmelden" className="mt-6 px-6 py-3 text-white rounded-lg font-medium transition-all hover:shadow-lg inline-flex items-center gap-2" style={{ backgroundColor: colors.success }}>
                 <Mail className="w-5 h-5" />
@@ -191,85 +347,130 @@ export default function Home() {
             ) : (
               runs.map((run, index) => {
                 const userStatus = userAttendance[run.id];
+                const isNextRun = index === 0;
+                
                 return (
-                  <div key={run.id} className="p-6 rounded-xl border border-gray-200 hover:shadow-md transition-shadow" style={{ backgroundColor: index === 0 ? colors.accent : 'white' }}>
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold mb-2" style={{ color: colors.primary }}>
-                          {new Date(run.start_at).toLocaleDateString('de-DE', { 
-                            weekday: 'long', 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
-                          })}
-                        </h3>
-                        <div className="space-y-1 text-gray-700">
-                          <p className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4" />
+                  <div 
+                    key={run.id} 
+                    className={`
+                      rounded-2xl border transition-all duration-200
+                      ${isNextRun 
+                        ? 'border-gray-200 bg-blue-50/10' 
+                        : 'border-gray-200 bg-white hover:shadow-md hover:border-gray-300'
+                      }
+                    `}
+                    style={isNextRun ? { borderColor: colors.primary } : {}}
+                  >
+                    <div className="p-6 pb-4">
+                      {isNextRun && (
+                        <span 
+                          className="inline-block px-3 py-1 rounded-full text-xs font-bold text-white mb-3"
+                          style={{ backgroundColor: colors.primary }}
+                        >
+                          Nächster Termin
+                        </span>
+                      )}
+                      
+                      <h3 className="text-xl font-bold mb-3" style={{ color: colors.primary }}>
+                        {new Date(run.start_at).toLocaleDateString('de-DE', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </h3>
+                      
+                      <div className="flex flex-wrap gap-4 text-gray-600">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          <span className="font-medium">
                             {new Date(run.start_at).toLocaleTimeString('de-DE', { 
                               hour: '2-digit', 
                               minute: '2-digit' 
                             })} Uhr
-                            {run.location && ` · ${run.location}`}
-                          </p>
-                          {run.note && (
-                            <p className="text-sm italic pl-6" style={{ color: colors.primaryLight }}>
-                              ℹ️ {run.note}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-2 justify-end mb-3">
-                          <Users className="w-5 h-5" style={{ color: colors.primary }} />
-                          <span className="text-2xl font-bold" style={{ color: colors.primary }}>
-                            {run.attendees || 0}
                           </span>
                         </div>
-                        {run.attendeeNames && run.attendeeNames.length > 0 ? (
-                          <p className="text-sm text-gray-600">
-                            {run.attendeeNames.join(', ')}
+                        
+                        {run.location && (
+                          <>
+                            <span>·</span>
+                            <span>{run.location}</span>
+                          </>
+                        )}
+                      </div>
+                      
+                      {run.note && (
+                        <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                          <p className="text-sm text-amber-900">
+                            <span className="font-semibold">ℹ️ Hinweis:</span> {run.note}
                           </p>
-                        ) : (
-                          <p className="text-sm text-gray-600">Angemeldet</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="flex items-center justify-center w-10 h-10 rounded-full"
+                            style={{ backgroundColor: colors.accent }}
+                          >
+                            <Users className="w-5 h-5" style={{ color: colors.primary }} />
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                              {run.attendees || 0}
+                            </div>
+                            <div className="text-xs text-gray-600">Teilnehmer</div>
+                          </div>
+                        </div>
+                        
+                        {run.attendeeNames && run.attendeeNames.length > 0 && (
+                          <div className="text-right text-sm text-gray-600 max-w-md">
+                            {run.attendeeNames.slice(0, 3).join(', ')}
+                            {run.attendeeNames.length > 3 && ` +${run.attendeeNames.length - 3}`}
+                          </div>
                         )}
                       </div>
                     </div>
-                    
-                    {user && (
-                      <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
-                        <button
-                          onClick={() => handleAttendance(run.id, 'yes')}
-                          className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
-                            userStatus === 'yes' 
-                              ? 'text-white shadow-md' 
-                              : 'bg-white border-2 hover:bg-gray-50'
-                          }`}
-                          style={{
-                            backgroundColor: userStatus === 'yes' ? colors.success : 'white',
-                            borderColor: colors.success,
-                            color: userStatus === 'yes' ? 'white' : colors.success
-                          }}
-                        >
-                          <CheckCircle className="w-5 h-5 inline mr-2" />
-                          Anmelden
-                        </button>
-                        <button
-                          onClick={() => handleAttendance(run.id, 'no')}
-                          className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
-                            userStatus === 'no' 
-                              ? 'text-white shadow-md' 
-                              : 'bg-white border-2 hover:bg-gray-50'
-                          }`}
-                          style={{
-                            backgroundColor: userStatus === 'no' ? colors.error : 'white',
-                            borderColor: colors.error,
-                            color: userStatus === 'no' ? 'white' : colors.error
-                          }}
-                        >
-                          <XCircle className="w-5 h-5 inline mr-2" />
-                          Abmelden
-                        </button>
+
+                    {user && runnerId && (
+                      <div className="p-6 pt-4 bg-white rounded-b-2xl border-t border-gray-100">
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleAttendance(run.id, 'yes')}
+                            className={`
+                              flex-1 py-3.5 px-5 rounded-xl font-semibold 
+                              transition-all duration-200
+                              flex items-center justify-center gap-2
+                              ${userStatus === 'yes' 
+                                ? 'text-white shadow-md' 
+                                : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-emerald-500 hover:bg-emerald-50'
+                              }
+                            `}
+                            style={userStatus === 'yes' ? { backgroundColor: colors.success } : {}}
+                          >
+                            <CheckCircle className="w-5 h-5" />
+                            <span>{userStatus === 'yes' ? 'Zugesagt' : 'Zusagen'}</span>
+                          </button>
+                          
+                          <button
+                            onClick={() => handleAttendance(run.id, 'no')}
+                            className={`
+                              flex-1 py-3.5 px-5 rounded-xl font-semibold 
+                              transition-all duration-200
+                              flex items-center justify-center gap-2
+                              ${userStatus === 'no' 
+                                ? 'text-white shadow-md' 
+                                : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-red-500 hover:bg-red-50'
+                              }
+                            `}
+                            style={userStatus === 'no' ? { backgroundColor: colors.error } : {}}
+                          >
+                            <XCircle className="w-5 h-5" />
+                            <span>{userStatus === 'no' ? 'Abgesagt' : 'Absagen'}</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

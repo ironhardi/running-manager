@@ -14,9 +14,12 @@ export async function GET() {
 
   const admin = createClient(url, serviceRole, { auth: { persistSession: false } });
 
-  // Hole nur zukünftige Läufe
-  const now = new Date().toISOString();
-  
+  // WICHTIG: Hole nur Läufe, die noch nicht vorbei sind
+  // Ein Lauf ist vorbei, wenn event_date + start_time in der Vergangenheit liegt
+  const now = new Date();
+  const todayDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+  const currentTime = now.toTimeString().slice(0, 8); // HH:MM:SS
+
   const { data, error } = await admin
     .from("events")
     .select(`
@@ -28,7 +31,7 @@ export async function GET() {
       notes,
       created_at
     `)
-    .gte("event_date", now.split('T')[0])
+    .or(`event_date.gt.${todayDate},and(event_date.eq.${todayDate},start_time.gte.${currentTime})`)
     .order("event_date", { ascending: true })
     .order("start_time", { ascending: true })
     .limit(20);
