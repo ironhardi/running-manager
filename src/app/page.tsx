@@ -338,7 +338,7 @@ export default function Home() {
             )}
           </div>
 
-          <div className="p-8 space-y-6">
+          <div className="p-8 space-y-8">
             {runs.length === 0 ? (
               <div className="text-center py-12">
                 <Calendar className="w-16 h-16 mx-auto mb-4" style={{ color: colors.gray, opacity: 0.3 }} />
@@ -353,7 +353,7 @@ export default function Home() {
                   <div 
                     key={run.id} 
                     className={`
-                      rounded-2xl border transition-all duration-200
+                      rounded-2xl border transition-all duration-200 relative
                       ${isNextRun 
                         ? 'border-gray-200 bg-blue-50/10' 
                         : 'border-gray-200 bg-white hover:shadow-md hover:border-gray-300'
@@ -435,7 +435,7 @@ export default function Home() {
                     </div>
 
                     {user && runnerId && (
-                      <div className="p-6 pt-4 bg-white rounded-b-2xl border-t border-gray-100">
+                      <div className="p-6 pt-5 bg-white rounded-b-2xl border-t border-gray-100">
                         <div className="flex gap-3">
                           <button
                             onClick={() => handleAttendance(run.id, 'yes')}
