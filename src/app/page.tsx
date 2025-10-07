@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, CheckCircle, XCircle, Mail, LogOut } from 'lucide-react';
+import { Users, Calendar, CheckCircle, XCircle, Mail, LogOut, Play } from 'lucide-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 
@@ -203,13 +203,13 @@ export default function Home() {
 
   const Header = () => {
     const [isAdmin, setIsAdmin] = useState(false);
-    const [checkingAdmin, setCheckingAdmin] = useState(true);
+    const [adminChecked, setAdminChecked] = useState(false);
 
     useEffect(() => {
       const checkAdmin = async () => {
         if (!user) {
           setIsAdmin(false);
-          setCheckingAdmin(false);
+          setAdminChecked(true);
           return;
         }
 
@@ -220,7 +220,7 @@ export default function Home() {
           .maybeSingle();
 
         setIsAdmin(!!runner?.is_admin);
-        setCheckingAdmin(false);
+        setAdminChecked(true);
       };
 
       checkAdmin();
@@ -247,13 +247,13 @@ export default function Home() {
             <div className="flex gap-2 sm:gap-3">
               {user ? (
                 <>
-                  {isAdmin && !checkingAdmin && (
+                  {adminChecked && isAdmin && (
                     <a 
                       href="/admin" 
                       className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white rounded-lg transition-all hover:shadow-lg" 
                       style={{ backgroundColor: colors.primary }}
                     >
-                      Admin
+                      Adminbereich
                     </a>
                   )}
                   <button 
@@ -301,43 +301,83 @@ export default function Home() {
       
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-4 sm:p-8 border-b border-gray-100">
-            <div className="flex gap-4 items-start">
-              <svg 
-                width="48" 
-                height="48" 
-                viewBox="0 0 48 48" 
-                fill="none" 
-                className="flex-shrink-0 mt-1 hidden sm:block"
-                style={{ opacity: 0.15 }}
-              >
-                <path 
-                  d="M14 18C14 12 10 8 4 8V12C6 12 8 13 8 16V18H14ZM14 18V28H4V18H14Z" 
-                  fill={colors.primary}
-                />
-                <path 
-                  d="M34 18C34 12 30 8 24 8V12C26 12 28 13 28 16V18H34ZM34 18V28H24V18H34Z" 
-                  fill={colors.primary}
-                />
-              </svg>
-              <div className="flex-1">
-                <p className="text-lg sm:text-xl text-gray-700 leading-relaxed mb-2 sm:mb-3 italic">
-                  {motivationQuote.quote}
+          {!user ? (
+            // Hero-Section für nicht eingeloggte User
+            <div className="p-8 sm:p-12 border-b border-gray-100 text-center">
+              <div className="max-w-2xl mx-auto">
+                <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center" style={{ backgroundColor: colors.accent }}>
+                  <Users className="w-10 h-10" style={{ color: colors.primary }} />
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-bold mb-4" style={{ color: colors.primary }}>
+                  Willkommen beim Lauf Manager
+                </h2>
+                <p className="text-lg text-gray-700 mb-6 leading-relaxed">
+                  Die Laufgruppe der HAW Kiel trifft sich regelmäßig zum gemeinsamen Training. 
+                  Melde dich an, um bei den nächsten Läufen dabei zu sein, dich mit anderen Läufer:innen 
+                  zu vernetzen und deinen Fortschritt zu verfolgen.
                 </p>
-                {motivationQuote.author && (
-                  <p className="text-xs sm:text-sm text-gray-500">
-                    — {motivationQuote.author}
-                  </p>
-                )}
+                <div className="flex gap-4 items-center justify-center mb-8">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold mb-1" style={{ color: colors.primary }}>
+                      {runs.length}
+                    </div>
+                    <div className="text-sm text-gray-600">Kommende Läufe</div>
+                  </div>
+                  <div className="w-px h-12 bg-gray-300"></div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold mb-1" style={{ color: colors.success }}>
+                      {runs.reduce((sum, run) => sum + (run.attendees || 0), 0)}
+                    </div>
+                    <div className="text-sm text-gray-600">Anmeldungen</div>
+                  </div>
+                </div>
+                <a 
+                  href="/anmelden" 
+                  className="inline-flex items-center gap-3 px-8 py-4 text-lg font-semibold text-white rounded-xl transition-all hover:shadow-xl transform hover:scale-105"
+                  style={{ backgroundColor: colors.success }}
+                >
+                  <Play className="w-6 h-6" />
+                  Jetzt anmelden und mitmachen
+                </a>
+                <p className="text-sm text-gray-500 mt-4">
+                  Nur mit HAW Kiel E-Mail-Adresse
+                </p>
               </div>
             </div>
-            {!user && (
-              <a href="/anmelden" className="mt-6 px-6 py-3 text-white rounded-lg font-medium transition-all hover:shadow-lg inline-flex items-center gap-2" style={{ backgroundColor: colors.success }}>
-                <Mail className="w-5 h-5" />
-                Jetzt anmelden
-              </a>
-            )}
-          </div>
+          ) : (
+            // Motivationsspruch für eingeloggte User
+            <div className="p-4 sm:p-8 border-b border-gray-100">
+              <div className="flex gap-4 items-start">
+                <svg 
+                  width="48" 
+                  height="48" 
+                  viewBox="0 0 48 48" 
+                  fill="none" 
+                  className="flex-shrink-0 mt-1 hidden sm:block"
+                  style={{ opacity: 0.15 }}
+                >
+                  <path 
+                    d="M14 18C14 12 10 8 4 8V12C6 12 8 13 8 16V18H14ZM14 18V28H4V18H14Z" 
+                    fill={colors.primary}
+                  />
+                  <path 
+                    d="M34 18C34 12 30 8 24 8V12C26 12 28 13 28 16V18H34ZM34 18V28H24V18H34Z" 
+                    fill={colors.primary}
+                  />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-lg sm:text-xl text-gray-700 leading-relaxed mb-2 sm:mb-3 italic">
+                    {motivationQuote.quote}
+                  </p>
+                  {motivationQuote.author && (
+                    <p className="text-xs sm:text-sm text-gray-500">
+                      — {motivationQuote.author}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="p-4 sm:p-8 space-y-4 sm:space-y-8">
             {runs.length === 0 ? (
@@ -426,10 +466,15 @@ export default function Home() {
                           </div>
                         </div>
                         
-                        {run.attendeeNames && run.attendeeNames.length > 0 && (
-                          <div className="text-right text-xs sm:text-sm text-gray-600 max-w-[50%] sm:max-w-md truncate">
-                            {run.attendeeNames.slice(0, 3).join(', ')}
-                            {run.attendeeNames.length > 3 && ` +${run.attendeeNames.length - 3}`}
+                        {user && run.attendeeNames && run.attendeeNames.length > 0 && (
+                          <div className="text-right text-xs sm:text-sm text-gray-600 max-w-[50%] sm:max-w-md">
+                            {run.attendeeNames.join(', ')}
+                          </div>
+                        )}
+                        
+                        {!user && run.attendees > 0 && (
+                          <div className="text-sm text-gray-500 italic">
+                            Melde dich an, um die Teilnehmer zu sehen
                           </div>
                         )}
                       </div>

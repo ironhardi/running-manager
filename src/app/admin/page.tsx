@@ -15,7 +15,7 @@ const colors = {
   lightGray: '#F3F4F6'
 };
 
-type Tab = 'termine' | 'teilnehmer' | 'laufer' | 'nachrichten';
+type Tab = 'termine' | 'anmeldungen' | 'laufer' | 'nachrichten';
 
 type EventRow = {
   id: string;
@@ -103,7 +103,7 @@ export default function AdminPage() {
 
   const tabs = [
     { id: 'termine' as Tab, label: 'Termine', icon: Calendar },
-    { id: 'teilnehmer' as Tab, label: 'Teilnehmer', icon: Users },
+    { id: 'anmeldungen' as Tab, label: 'Anmeldungen', icon: Users },
     { id: 'laufer' as Tab, label: 'Läufer', icon: User },
     { id: 'nachrichten' as Tab, label: 'Nachrichten', icon: MessageSquare }
   ];
@@ -119,7 +119,7 @@ export default function AdminPage() {
               Adminbereich
             </h2>
             <p className="text-gray-600">
-              Verwalte Termine, Teilnehmer, Läufer und Nachrichten.
+              Verwalte Termine, Anmeldungen, Läufer und Nachrichten.
             </p>
           </div>
 
@@ -149,7 +149,7 @@ export default function AdminPage() {
 
           <div className="p-8">
             {tab === 'termine' && <TermineTab />}
-            {tab === 'teilnehmer' && <TeilnehmerTab />}
+            {tab === 'anmeldungen' && <AnmeldungenTab />}
             {tab === 'laufer' && <LauferTab />}
             {tab === 'nachrichten' && <NachrichtenTab />}
           </div>
@@ -454,7 +454,7 @@ const TermineTab = () => {
   );
 };
 
-const TeilnehmerTab = () => {
+const AnmeldungenTab = () => {
   const [topEvents, setTopEvents] = useState<EventRow[]>([]);
   const [attendeesByEvent, setAttendeesByEvent] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
@@ -527,7 +527,7 @@ const TeilnehmerTab = () => {
     <div className="space-y-6">
       <div>
         <h3 className="text-xl font-bold mb-2" style={{ color: colors.primary }}>
-          Teilnehmer – kommende Termine
+          Anmeldungen – kommende Termine
         </h3>
         <p className="text-gray-600 mb-6">Direkte Übersicht inkl. Export pro Termin.</p>
 
